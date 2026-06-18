@@ -1,0 +1,2241 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<title>Monitoring Okupansi Gedung</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2330; --border: #30363d;
+  --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --green: #3fb950;
+  --yellow: #d29922; --red: #f85149; --orange: #fb8500; --cyan: #39d0d8; 
+  --sidebar-w: 250px; --mono: 'Poppins', sans-serif; --sans: 'Poppins', sans-serif;
+}
+body.light {
+  --bg: #e8eef5; --surface: #e3ebf4; --surface2: #d9e3ee; --border: #c5cfdb;
+  --text: #2f3440; --muted: #6b7280; --accent: #6c8cff; --green: #6fbf9a;
+  --yellow: #e6c36a; --red: #e07a7a; --orange: #e3a86b;--cyan: #6fbad1;
+}
+body.light #content,
+body.light #sidebar,
+body.light .sb-toggle-btn {
+  filter: brightness(0.97) contrast(0.96);
+}
+body.light #sidebar,
+body.light .topbar,
+body.light .card {
+  background: var(--surface);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; display: flex; overflow-x: hidden; }
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image: linear-gradient(rgba(88,166,255,0.025) 1px,transparent 1px), linear-gradient(90deg,rgba(88,166,255,0.025) 1px,transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── SIDEBAR ── */
+#sidebar {
+  position:fixed; left:0; top:0; bottom:0; width:var(--sidebar-w);
+  background:var(--surface); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; z-index:50; overflow-y:hidden; scrollbar-width:none; -ms-overflow-style:none;
+  transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+}
+#sidebar::-webkit-scrollbar {display: none;}
+#sidebar.hidden {
+  transform: translateX(-100%);
+}
+#sb-rooms {
+  flex: 1;  overflow-y: auto;  scrollbar-width: none; -ms-overflow-style: none; }
+
+#sb-rooms::-webkit-scrollbar {display: none;}
+
+/* ── SIDEBAR TOGGLE BUTTON ── */
+.sb-toggle-btn {
+  position: fixed;
+  top: 50%;
+  left: var(--sidebar-w);
+  transform: translateY(-50%);
+  width: 20px;
+  height: 48px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  transition: left 0.35s cubic-bezier(.4,0,.2,1), background 0.2s, color 0.2s;
+  color: var(--muted);
+  font-size: 11px;
+}
+.sb-toggle-btn:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+.sb-toggle-btn.collapsed {
+  left: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0 8px 8px 0;
+}
+
+.sb-logo { display:flex; align-items:center; gap:10px; padding:18px 16px 16px; border-bottom:1px solid var(--border); }
+.sb-logo-icon { width:40px; height:40px; border-radius:9px; flex-shrink:0; background:linear-gradient(135deg,var(--accent),var(--cyan)); display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:13px; font-weight:700; color:#000; }
+.sb-logo-text { font-family:var(--mono); font-size:11px; line-height:1.4; }
+.sb-logo-text span { display:block; color:var(--muted); font-size:9px; margin-top:1px; }
+.sb-sec { padding:16px 16px 6px; font-family:var(--mono); font-size:9px; letter-spacing:0.12em; color:var(--muted); text-transform:uppercase; }
+.sb-item { display:flex; align-items:center; gap:10px; padding:9px 16px; margin:1px 8px; border-radius:8px; cursor:pointer; transition:all 0.18s; color:var(--muted); font-size:13px; font-weight:500; border:1px solid transparent; }
+.sb-item:hover { background:var(--surface2); color:var(--text); }
+.sb-item.active { background:rgba(88,166,255,0.12); color:var(--accent); border-color:rgba(88,166,255,0.2); }
+.sb-icon { font-size:15px; width:20px; text-align:center; flex-shrink:0; }
+.sb-badge { margin-left:auto; font-family:var(--mono); font-size:9px; padding:2px 6px; border-radius:10px; }
+.sb-badge.ok   { background:rgba(63,185,80,0.15);  color:var(--green); }
+.sb-badge.warn { background:rgba(210,153,34,0.15); color:var(--yellow); }
+.sb-badge.full { background:rgba(248,81,73,0.15);  color:var(--red); }
+.sb-div { height:1px; background:var(--border); margin:8px 16px; }
+.sb-footer { margin-top:auto; padding:12px 16px; border-top:1px solid var(--border); }
+.sb-live { display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:10px; color:var(--muted); }
+.dot-live { width:6px; height:6px; border-radius:50%; background:var(--green); animation:blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+.sb-time { font-family:var(--mono); font-size:11px; color:var(--text); margin-top:4px; }
+
+/* ── CONTENT ── */
+#content { margin-left:var(--sidebar-w); flex:1; display:flex; flex-direction:column; min-height:100vh; position:relative; z-index:1; transition: margin-left 0.35s cubic-bezier(.4,0,.2,1); }
+#content.full { margin-left: 0; }
+
+.topbar { position:sticky; top:0; z-index:40; background:rgba(13,17,23,0.9); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:54px; }
+.topbar-left .page-title { font-family:var(--mono); font-size:13px; }
+.topbar-left .page-sub { font-size:11px; color:var(--muted); }
+.tb-btn { width:34px; height:34px; border-radius:8px; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:15px; transition:all 0.2s; color:var(--muted); position:relative; }
+.tb-btn:hover { background:var(--surface2); color:var(--text); }
+.notif-dot { position:absolute; top:6px; right:6px; width:6px; height:6px; border-radius:50%; background:var(--red); display:none; }
+.alert-strip { display:none; align-items:center; justify-content:space-between; padding:8px 24px; font-family:var(--mono); font-size:11px; border-bottom:1px solid; }
+.alert-strip.show { display:flex; animation:sdn 0.3s ease; }
+@keyframes sdn { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
+.alert-strip.warn { background:rgba(210,153,34,0.1); color:var(--yellow); border-color:rgba(210,153,34,0.3); }
+.alert-strip.danger { background:rgba(248,81,73,0.12); color:var(--red); border-color:rgba(248,81,73,0.3); }
+
+/* ── PAGES ── */
+.page { display:none; padding:20px 24px 32px; animation:fup 0.3s ease; }
+.page.active { display:block; }
+@keyframes fup { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── OVERVIEW ── */
+
+.ov-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+.ov-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+.ov-lbl { font-size:11px; color:var(--muted); margin-bottom:5px; }
+.ov-val { font-family:var(--mono); font-size:22px; font-weight:700; }
+.ov-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+.room-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:16px; }
+
+#page-overview.active{
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 54px);
+  min-height: 0;
+}
+
+.ov-header {
+  flex-shrink: 0;
+}
+
+.ov-scroll {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+  min-height: 0; 
+
+}
+
+.ov-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Room card */
+.room-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; cursor:pointer; transition:all 0.2s; }
+.room-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.3); }
+.rc-top { padding:14px 14px 12px; }
+.rc-name { font-family:var(--mono); font-size:11px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.rc-body { display:flex; align-items:center; gap:14px; }
+.mr { position:relative; width:70px; height:70px; flex-shrink:0; }
+.mr svg { transform:rotate(-90deg); }
+.mr-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.mr-pct { font-family:var(--mono); font-size:13px; font-weight:700; line-height:1; }
+.mr-lbl { font-size:9px; color:var(--muted); }
+.rc-info { flex:1; }
+.rc-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
+.rc-key { font-size:11px; color:var(--muted); }
+.rc-val { font-family:var(--mono); font-size:11px; }
+.rc-foot { padding:9px 14px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.s-pill { display:flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-family:var(--mono); font-size:10px; border:1px solid; }
+.s-pill.normal { background:rgba(63,185,80,0.1);  color:var(--green);  border-color:rgba(63,185,80,0.25); }
+.s-pill.warn   { background:rgba(210,153,34,0.1); color:var(--yellow); border-color:rgba(210,153,34,0.25); }
+.s-pill.full   { background:rgba(248,81,73,0.1);  color:var(--red);    border-color:rgba(248,81,73,0.25); }
+.rc-detail-btn { font-size:11px; color:var(--accent); cursor:pointer; font-family:var(--mono); background:none; border:none; }
+.rc-prog { height:4px; background:var(--surface2); border-top:1px solid var(--border); }
+.rc-prog-fill { height:100%; transition:width 0.8s ease; }
+
+/* ── CARD ── */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.card-head { padding:12px 16px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.ch-title { font-family:var(--mono); font-size:10px; letter-spacing:0.1em; color:var(--muted);  }
+.ch-sub { font-family:var(--mono); font-size:10px; color:var(--muted); }
+
+/* ── DETAIL GRID ── */
+.d-grid { display:grid; grid-template-columns:255px 1fr 270px; gap:14px; }
+.d-left, .d-center, .d-right { display:flex; flex-direction:column; gap:14px; }
+.back-btn { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px; color:var(--muted); background:var(--surface); border:1px solid var(--border); padding:6px 12px; border-radius:8px; transition:all 0.2s; }
+.back-btn:hover { color:var(--text); border-color:var(--accent); }
+
+/* Ring */
+.ring-wrap { display:flex; flex-direction:column; align-items:center; padding:18px 16px 12px; }
+.ring-cont { position:relative; width:148px; height:148px; margin-bottom:14px; }
+.ring-cont svg { transform:rotate(-90deg); }
+.ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.ring-pct { font-family:var(--mono); font-size:13px; font-weight:600; color:var(--muted); margin-top:2px; }
+.ring-lbl { font-size:10px; color:var(--muted); margin-top:1px; }
+.ring-count { font-family:var(--mono); font-size:26px; font-weight:700; line-height:1; color:var(--text); }
+.ring-status { display:flex; align-items:center; gap:6px; padding:5px 14px; border-radius:20px; border:1px solid; font-family:var(--mono); font-size:10px; }
+.occ-bar { margin:8px 16px 4px; }
+.occ-bar-bg { height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; border:1px solid var(--border); }
+.occ-bar-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--green),var(--yellow),var(--red)); transition:width 1s; }
+
+/* KPI */
+.kpi-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:12px; }
+.kpi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 16px;}
+.kpi-item { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:14px; }
+.kpi-lbl { font-size:11px; color:var(--muted); margin-bottom:4px; }
+.kpi-val { font-family:var(--mono); font-size:22px; font-weight:700; line-height:1; }
+.kpi-sub { font-size:10px; color:var(--muted); margin-top:3px; }
+.kpi-bar { height:3px; border-radius:2px; margin-top:7px; overflow:hidden; background:var(--border); }
+.kpi-bar-fill { height:100%; border-radius:2px; transition:width 0.8s; }
+
+/* Info */
+.info-list { padding:10px 14px; display:flex; flex-direction:column; gap:9px; }
+.info-row { display:flex; align-items:center; justify-content:space-between; }
+.info-key { font-size:12px; color:var(--muted); }
+.info-val { font-family:var(--mono); font-size:11px; }
+.badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-family:var(--mono); }
+.bg { background:rgba(63,185,80,.15); color:var(--green); border:1px solid rgba(63,185,80,.3); }
+.by { background:rgba(210,153,34,.15); color:var(--yellow); border:1px solid rgba(210,153,34,.3); }
+.br { background:rgba(248,81,73,.15); color:var(--red); border:1px solid rgba(248,81,73,.3); }
+
+/* Charts */
+.ct-bar { display:flex; gap:6px; padding:0 14px 10px; }
+.ct-btn { padding:4px 10px; border-radius:6px; font-size:10px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-family:var(--mono); transition:all 0.15s; }
+.ct-btn.active { background:var(--accent); color:#000; border-color:var(--accent); }
+.chart-wrap { position:relative; height:230px; padding:0 14px 14px; }
+.chart-wrap canvas { width:100%!important; height:100%!important; }
+.ins-strip { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--border); }
+.ins-item { padding:10px 14px; border-right:1px solid var(--border); }
+.ins-item:last-child { border-right:none; }
+.ins-lbl { font-size:10px; color:var(--muted); margin-bottom:3px; }
+.ins-val { font-family:var(--mono); font-size:15px; font-weight:700; }
+.ins-sub { font-size:10px; color:var(--muted); }
+
+/* Mini chart */
+.mini-cw { position:relative; height:130px; padding:0 14px 14px; }
+.mini-cw canvas { width:100%!important; height:100%!important; }
+
+/* Notif */
+.notif-list { padding:8px 10px 10px; display:flex; flex-direction:column; gap:6px; max-height:190px; overflow-y:auto; }
+.notif-item { display:flex; gap:8px; padding:8px 10px; border-radius:8px; background:var(--surface2); border:1px solid var(--border); animation:fi 0.3s ease; }
+@keyframes fi { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
+.n-icon { font-size:14px; flex-shrink:0; }
+.n-body { font-size:11px; line-height:1.4; }
+.n-time { font-family:var(--mono); font-size:9px; color:var(--muted); }
+
+/* Sys */
+.sys-list { padding:10px 14px; display:flex; flex-direction:column; gap:8px; }
+.sys-row { display:flex; align-items:center; justify-content:space-between; }
+.sys-key { display:flex; align-items:center; gap:7px; font-size:12px; }
+.sys-dot { width:7px; height:7px; border-radius:50%; }
+.sys-dot.g { background:var(--green); box-shadow:0 0 5px var(--green); }
+.sys-val { font-family:var(--mono); font-size:10px; color:var(--muted); }
+
+/* History */
+.hist-sec { border-top:1px solid var(--border); padding:14px; }
+.hist-ctrl { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+.hist-ig { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+input[type="date"] { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:7px 12px; border-radius:8px; font-family:var(--mono); font-size:11px; cursor:pointer; outline:none; transition:border-color 0.2s; }
+input[type="date"]:focus { border-color:var(--accent); }
+.btn-p { background:var(--accent); color:#000000; border:none; padding:8px 16px; border-radius:8px; font-family:var(--mono); font-size:11px; font-weight:700; cursor:pointer; }
+.btn-p:hover { opacity:0.8; }
+.btn-g { background:var(--surface2); color:var(--muted); border:1px solid var(--border); padding:8px 12px; border-radius:8px; font-family:var(--mono); font-size:11px; cursor:pointer; }
+.btn-g:hover { border-color:var(--muted); }
+.hist-empty { text-align:center; padding:32px; border:1px dashed var(--border); border-radius:10px; background:var(--surface2); color:var(--muted); font-family:var(--mono); font-size:11px; }
+.hist-area { display:none; }
+.hist-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:12px; }
+.hs { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+.hs-lbl { font-size:9px; color:var(--muted); font-family:var(--mono); margin-bottom:3px; }
+.hs-val { font-family:var(--mono); font-size:17px; font-weight:700; }
+.hs-sub { font-size:10px; color:var(--muted); }
+.hcw { position:relative; height:210px; }
+.hcw canvas { width:100%!important; height:100%!important; }
+.hm-row { margin-top:12px; }
+.hm-lbl { font-size:9px; color:var(--muted); font-family:var(--mono); letter-spacing:0.08em; margin-bottom:5px; }
+.hm-cells { display:grid; grid-template-columns:repeat(24,1fr); gap:2px; }
+.hm-cell { height:20px; border-radius:3px; cursor:default; transition:transform 0.1s; }
+.hm-cell:hover { transform:scaleY(1.3); }
+.hm-axis { display:flex; justify-content:space-between; font-size:9px; color:var(--muted); font-family:var(--mono); margin-top:3px; }
+.btn-dl { display:flex; align-items:center; gap:6px; background:rgba(63,185,80,0.12); color:var(--green); border:1px solid rgba(63,185,80,0.3); padding:7px 14px; border-radius:8px; font-family:var(--mono); font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s; }
+.btn-dl:hover { background:rgba(63,185,80,0.22); border-color:var(--green); }
+.btn-dl:disabled { opacity:0.4; cursor:not-allowed; }
+
+body { transition: background 0.3s, color 0.3s; }
+* { transition: background 0.3s, border-color 0.3s, color 0.3s; }
+
+/* Override transition for sidebar & content so it's smooth */
+#sidebar, #content, .sb-toggle-btn { transition-property: transform, margin-left, left, background, border-color, color !important; transition-duration: 0.35s, 0.35s, 0.35s, 0.3s, 0.3s, 0.3s !important; transition-timing-function: cubic-bezier(.4,0,.2,1) !important; }
+
+
+
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR TOGGLE BUTTON -->
+<div class="sb-toggle-btn" id="sidebarToggle" onclick="toggleSidebar()" title="Sembunyikan/tampilkan sidebar">
+  <i class="bi bi-chevron-left" id="toggleIcon"></i>
+</div>
+
+<!-- SIDEBAR -->
+<aside id="sidebar">
+  <div class="sb-logo">
+    <img src="logo.svg" alt="Logo" style="height:90px; object-fit:contain;">
+  </div>
+  <div class="sb-sec">gedung Direktorat</div>
+  <div class="sb-item active" id="nav-overview" onclick="navigate('overview')">
+    <span class="sb-icon"><i class="bi bi-grid-fill"></i></span> Overview
+  </div>
+  <div class="sb-sec">Ruangan</div>
+  <div id="sb-rooms"></div>
+</aside>
+
+<!-- CONTENT -->
+<div id="content">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="page-title" id="topTitle">Overview Gedung</div>
+      <div class="page-sub" id="topSub">Direktorat</div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <div id="liveClock" 
+          style="font-family: 'Poppins', sans-serif; 
+            font-size: 20px; 
+            font-weight: 500;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: 'tnum'; 
+            display: inline-block;
+            min-width: 220px; 
+            text-align: right;
+            white-space: nowrap">
+        --:--:--
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div class="tb-btn" onclick="toggleTheme()" id="themeBtn"><i class="bi bi-moon-fill"></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="alert-strip" id="aStrip">
+    <span id="aText">—</span>
+    <button onclick="document.getElementById('aStrip').classList.remove('show')" style="background:none;border:none;cursor:pointer;color:inherit;font-size:14px;"><i class="bi bi-x-lg"></i></button>
+  </div>
+
+  <!-- OVERVIEW PAGE -->
+  <div class="page active" id="page-overview">
+
+    <div class="ov-header">
+      <div style="margin-bottom:16px;">
+        <div style="font-family:var(--mono);font-size:13px;">Overview Seluruh Ruangan</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;" id="ovDate">—</div>
+      </div>
+
+      <div class="ov-summary">
+        <div class="ov-card"><div class="ov-lbl">Total Ruangan</div><div class="ov-val" style="color:var(--accent)" id="ovRooms">0</div><div class="ov-sub">terpantau</div></div>
+        <div class="ov-card"><div class="ov-lbl">Total Orang</div><div class="ov-val" id="ovPeople">0</div><div class="ov-sub">di seluruh gedung</div></div>
+        <div class="ov-card"><div class="ov-lbl">Ruangan Normal</div><div class="ov-val" style="color:var(--green)" id="ovNormal">0</div><div class="ov-sub">di bawah 75%</div></div>
+        <div class="ov-card"><div class="ov-lbl">Perlu Perhatian</div><div class="ov-val" style="color:var(--red)" id="ovAlert">0</div><div class="ov-sub">hampir penuh / penuh</div></div>
+      </div>
+    </div>
+
+    <div class="ov-scroll">
+      <div class="room-grid" id="roomGrid"></div>
+    </div>
+  </div>
+  
+
+  <!-- DETAIL PAGE -->
+  <div class="page" id="page-room">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+      <button class="back-btn" onclick="navigate('overview')">← Kembali</button>
+      <div>
+        <div style="font-family:var(--mono);font-size:13px;" id="dRoomName">—</div>
+        <div style="font-size:11px;color:var(--muted);" id="dRoomDesc">—</div>
+      </div>
+    </div>
+    <div class="d-grid">
+      <!-- LEFT -->
+      <div class="d-left">
+        <div class="card">
+          <div class="card-head"><span class="ch-title">Okupansi Real-time</span><span class="ch-sub" id="dTime">—</span></div>
+          <div class="ring-wrap">
+            <div class="ring-cont">
+              <svg width="148" height="148" viewBox="0 0 148 148">
+                <defs><linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3fb950"/><stop offset="50%" stop-color="#d29922"/><stop offset="100%" stop-color="#f85149"/></linearGradient></defs>
+                <circle cx="74" cy="74" r="60" fill="none" stroke="var(--surface2)" stroke-width="11"/>
+                <circle id="dRing" cx="74" cy="74" r="60" fill="none" stroke="url(#rg)" stroke-width="11" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="377" style="transition:stroke-dashoffset 1s cubic-bezier(.4,0,.2,1)"/>
+              </svg>
+              <div class="ring-center">
+                <div class="ring-count" id="dCount">0/200</div>
+                <div class="ring-lbl">orang</div>
+                <div class="ring-pct" id="dPct">0%</div>
+              </div>
+            </div>
+            <div class="ring-status" id="dRingStatus"><span id="dSDot"><i class="bi bi-circle-fill" style="color:var(--green)"></i></span><span id="dSText">NORMAL</span></div>
+          </div>
+          <div class="occ-bar"><div class="occ-bar-bg"><div class="occ-bar-fill" id="dOccBar" style="width:0%"></div></div></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 16px 12px;font-size:10px;color:var(--muted);font-family:var(--mono);"><span>0</span><span id="dMaxCap">0</span></div>
+
+        <div class="kpi-row">
+          <div class="kpi-item">
+            <div class="kpi-lbl">Total Masuk</div>
+            <div class="kpi-val" style="color:var(--green)" id="dIn">0</div>
+            <div class="kpi-bar">
+              <div class="kpi-bar-fill" style="background:var(--green)" id="dBarIn"></div>
+            </div>
+          </div>
+          <div class="kpi-item">
+            <div class="kpi-lbl">Total Keluar</div>
+            <div class="kpi-val" style="color:var(--red)" id="dOut">0</div>
+            <div class="kpi-bar">
+              <div class="kpi-bar-fill" style="background:var(--red)" id="dBarOut"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+        <div class="card">
+          <div class="card-head"><span class="ch-title">Status & Info</span></div>
+          <div class="info-list">
+            <div class="info-row"><span class="info-key">Level Okupansi</span><span class="badge bg" id="dLevel">KOSONG</span></div>
+            <div class="info-row"><span class="info-key">Rekomendasi Suhu Ruangan</span><span class="info-val" id="dSuhu">24°C</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTER -->
+      <div class="d-center">
+        <div class="card">
+          <div class="card-head"><span class="ch-title">Grafik Okupansi & Lalu Lintas</span><span class="ch-sub"><span id="dChartDate">—</span></span></div>
+          <div class="ct-bar" style="justify-content:space-between;align-items:center;">
+            <div style="display:flex;gap:6px;">
+              <button class="ct-btn active" onclick="setMode('all',this)">Semua</button>
+              <button class="ct-btn" onclick="setMode('capacity',this)">Kapasitas</button>
+              <button class="ct-btn" onclick="setMode('flow',this)">In/Out</button>
+            </div>
+            <button class="ct-btn" id="btnResetZoom" onclick="resetMainZoom()" title="Reset tampilan grafik ke default" style="display:none;gap:4px;align-items:center;">
+              <i class="bi bi-arrows-fullscreen" style="font-size:10px;"></i> Reset Zoom
+            </button>
+          </div>
+          <div class="chart-wrap"><canvas id="dMainChart"></canvas></div>
+          <div style="text-align:center;padding:3px 14px 2px;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.04em;">
+            
+          </div>
+          <div class="ins-strip">
+            <div class="ins-item"><div class="ins-lbl">Peak Hari Ini</div><div class="ins-val" style="color:var(--accent)" id="dPeak">0</div><div class="ins-sub">orang</div></div>
+            <div class="ins-item"><div class="ins-lbl">Rata-rata</div><div class="ins-val" style="color:var(--cyan)" id="dAvg">0</div><div class="ins-sub">orang</div></div>
+            <div class="ins-item"><div class="ins-lbl">Okupansi</div><div class="ins-val" style="color:var(--yellow)" id="dPctIns">0%</div><div class="ins-sub">saat ini</div></div>
+          </div>
+        </div>
+        <!-- HISTORY -->
+        <div class="card">
+          <div class="card-head"><span class="ch-title"> Histori Okupansi</span></div>
+          <div class="hist-sec">
+            <div class="hist-ctrl">
+              <button class="btn-dl" id="btnDownloadExcel" onclick="downloadExcel()" title="Download data sebagai file Excel">
+                <i class="bi bi-file-earmark-excel-fill"></i> Download Excel
+              </button>
+              <div class="hist-ig">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                  <input type="date" id="dHistDateFrom" title="Tanggal mulai"/>
+                  <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">s/d</span>
+                  <input type="date" id="dHistDateTo" title="Tanggal akhir"/>
+                </div>
+                <div style="display:flex;gap:4px;align-items:center;">
+                  <button class="ct-btn active" id="histModeHour" onclick="setHistMode('hour',this)" title="Tampilkan data dirangkum per jam">Per Jam</button>
+                  <button class="ct-btn" id="histModeRaw" onclick="setHistMode('raw',this)" title="Tampilkan semua data mentah per update">Per Update</button>
+                </div>
+                <button class="btn-p" onclick="loadHistory()">TAMPILKAN</button>
+                <button class="btn-g" onclick="clearHistory()">RESET</button>
+              </div>
+            </div>
+            <div class="hist-empty" id="dHistEmpty"><div style="font-size:24px;margin-bottom:8px;"><i class="bi bi-calendar-range-fill"></i></div>Pilih rentang tanggal, lalu klik <strong style="color:var(--accent)">TAMPILKAN</strong></div>
+            <div class="hist-area" id="dHistArea">
+              <div class="hist-stats">
+                <div class="hs"><div class="hs-lbl">Peak</div><div class="hs-val" style="color:var(--accent)" id="hPeak">—</div><div class="hs-sub" id="hPeakT">—</div></div>
+                <div class="hs"><div class="hs-lbl">Rata-rata</div><div class="hs-val" style="color:var(--cyan)" id="hAvg">—</div><div class="hs-sub" id="hAvgSub">okupansi</div></div>
+                <div class="hs"><div class="hs-lbl">Total Masuk</div><div class="hs-val" style="color:var(--green)" id="hIn">—</div><div class="hs-sub">a→b</div></div>
+                <div class="hs"><div class="hs-lbl">Total Keluar</div><div class="hs-val" style="color:var(--red)" id="hOut">—</div><div class="hs-sub">b→a</div></div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <div style="font-family:var(--mono);font-size:11px;color:var(--accent);" id="hTitle">—</div>
+                <button class="ct-btn" id="btnResetHistZoom" onclick="resetHistZoom()" title="Reset tampilan grafik ke default" style="display:none;gap:4px;align-items:center;font-size:10px;">
+                  <i class="bi bi-arrows-fullscreen" style="font-size:10px;"></i> Reset Zoom
+                </button>
+              </div>
+              <div class="hcw"><canvas id="dHistChart"></canvas></div>
+              <div class="hm-row">
+                <div class="hm-lbl">Heatmap per Jam</div>
+                <div class="hm-cells" id="dHeatmap"></div>
+                <div class="hm-axis"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="d-right">
+        <div class="card">
+          <div class="card-head"><span class="ch-title">Tren Singkat</span><span class="ch-sub">10 data terakhir</span></div>
+          <div class="mini-cw"><canvas id="dMiniChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="ch-title">Log Notifikasi</span><button onclick="clearNotif()" style="font-size:9px;background:none;border:none;color:var(--muted);cursor:pointer;font-family:var(--mono)">CLEAR</button></div>
+          <div class="notif-list" id="dNotifList"><div data-ph style="text-align:center;padding:12px;font-size:11px;color:var(--muted);font-family:var(--mono)">Menunggu data...</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="ch-title">Status Sistem</span></div>
+          <div class="sys-list">
+            <div class="sys-row"><div class="sys-key"><div class="sys-dot g" id="sysDbDot"></div>Database</div><span class="sys-val" id="sysDbSt">Connected</span></div>
+            <div class="sys-row"><div class="sys-key"><div class="sys-dot g" id="sysDevDot"></div>Edge Device</div><span class="sys-val" id="sysDevSt">Menunggu...</span></div>
+            <div class="sys-row"><div class="sys-key"><div class="sys-dot g" id="sysMqttDot"></div>MQTT Broker</div><span class="sys-val" id="sysMqttSt">Connected</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script>
+
+// ══════════════════════════════════════════════
+// SIDEBAR TOGGLE
+// ══════════════════════════════════════════════
+let sidebarOpen = true;
+
+function toggleSidebar() {
+  const sidebar   = document.getElementById('sidebar');
+  const content   = document.getElementById('content');
+  const toggleEl  = document.getElementById('sidebarToggle');
+  const icon      = document.getElementById('toggleIcon');
+
+  sidebarOpen = !sidebarOpen;
+
+  if (sidebarOpen) {
+    sidebar.classList.remove('hidden');
+    content.classList.remove('full');
+    toggleEl.classList.remove('collapsed');
+    toggleEl.style.left = 'var(--sidebar-w)';
+    icon.className = 'bi bi-chevron-left';
+    localStorage.setItem('sidebarOpen', '1');
+  } else {
+    sidebar.classList.add('hidden');
+    content.classList.add('full');
+    toggleEl.classList.add('collapsed');
+    toggleEl.style.left = '0px';
+    icon.className = 'bi bi-chevron-right';
+    localStorage.setItem('sidebarOpen', '0');
+  }
+}
+
+// Restore sidebar state on load
+(function restoreSidebar() {
+  const saved = localStorage.getItem('sidebarOpen');
+  if (saved === '0') {
+    sidebarOpen = true; // will be toggled to false
+    toggleSidebar();
+  }
+})();
+
+// ══════════════════════════════════════════════
+// KONFIGURASI RUANGAN
+// ══════════════════════════════════════════════
+const ROOM_ICON = 'bi-building-fill';
+const ROOMS = [
+  { id:'perpus', name:'Perpustakaan Tel-U Purwokerto', maxCap:200, desc:'Lantai 1 \u00B7 Gedung Direktorat', offline:false },
+  { id:'ruang2', name:'Ruangan 2', maxCap:50, desc:'Lantai 1 \u00B7 Gedung Direktorat', offline:false },
+  { id:'ruang3', name:'Ruangan 3', maxCap:50, desc:'Lantai 2 \u00B7 Gedung Direktorat', offline:false },
+  { id:'ruang4', name:'Ruangan 4', maxCap:50, desc:'Lantai 3 \u00B7 Gedung Direktorat', offline:false },
+  { id:'ruang5', name:'Ruangan 5', maxCap:50, desc:'Lantai 4 \u00B7 Gedung Direktorat', offline:true },
+  { id:'ruang6', name:'Ruangan 6', maxCap:50, desc:'Lantai 5 \u00B7 Gedung Direktorat', offline:true },
+
+];
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const RS = {};
+const RH = {};
+ROOMS.forEach(r => {
+  RS[r.id] = { capacity:0, a_to_b:0, b_to_a:0, incr_in:0, incr_out:0,
+    cd:{ labels:[], ts:[], cap:[], in:[], out:[] }, peak:0, sum:0, cnt:0,
+    mc:null, mic:null, hc:null };
+  RH[r.id] = {};
+});
+
+let activeRoom = null;
+let chartMode  = 'all';
+
+// ══════════════════════════════════════════════
+// SIDEBAR BUILD
+// ══════════════════════════════════════════════
+function buildSidebar() {
+  const c = document.getElementById('sb-rooms');
+  ROOMS.forEach(r => {
+    const el = document.createElement('div');
+    el.className = 'sb-item'; el.id = 'nav-'+r.id;
+    if (r.offline) {
+      el.innerHTML = `
+        <span class="sb-icon" style="opacity:0.4">
+          <i class="bi ${ROOM_ICON}"></i>
+        </span>
+        <span style="opacity:0.4">${r.name}</span>
+        <span class="sb-badge" style="background:rgba(139,148,158,0.15);color:var(--muted)">
+          offline
+        </span>
+      `;
+      el.style.cursor = 'default';
+      el.onclick = null;
+    } else {
+      el.innerHTML = `<span class="sb-icon"><i class="bi ${ROOM_ICON}"></i></span>${r.name}<span class="sb-badge ok" id="sbb-${r.id}">0%</span>`;
+      el.onclick = () => navigate('room', r.id);
+    }
+    c.appendChild(el);
+  });
+}
+
+// ══════════════════════════════════════════════
+// OVERVIEW CARDS BUILD
+// ══════════════════════════════════════════════
+function buildOverview() {
+  const g = document.getElementById('roomGrid');
+  g.innerHTML = '';
+  ROOMS.forEach(r => {
+    const el = document.createElement('div');
+    el.className = 'room-card'; el.id = 'rc-'+r.id;
+    if (r.offline) {
+      el.style.opacity = '0.4';
+      el.style.pointerEvents = 'none';
+    }
+    el.innerHTML = `
+      <div class="rc-top">
+        <div class="rc-name"><span style="font-size:18px"><i class="bi ${ROOM_ICON}" style="opacity:${r.offline ? 0.4 : 1}"></i></span>${r.name}</div>
+        <div class="rc-body">
+          <div class="mr">
+            <svg width="70" height="70" viewBox="0 0 70 70">
+              <defs>
+                <linearGradient id="rg-${r.id}" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#3fb950"/>
+                  <stop offset="50%" stop-color="#d29922"/>
+                  <stop offset="100%" stop-color="#f85149"/>
+                </linearGradient>
+              </defs>
+              <circle cx="35" cy="35" r="28" fill="none" stroke="var(--surface2)" stroke-width="6"/>
+              <circle 
+                id="mrRing-${r.id}" 
+                cx="35" cy="35" r="28" 
+                fill="none" 
+                stroke="url(#rg-${r.id})"
+                stroke-width="6"
+                stroke-linecap="round"
+                stroke-dasharray="176"
+                stroke-dashoffset="176"
+                style="transform:transform-origin:35px 35px;transition:stroke-dashoffset 0.8s ease"
+              />
+            </svg>
+            <div class="mr-center">
+              <div class="mr-pct" id="mrPct-${r.id}">0%</div>
+              <div class="mr-lbl">${r.offline ? 'offline' : ''}</div>
+            </div>
+          </div>
+          <div class="rc-info">
+            <div class="rc-row"><span class="rc-key">Orang</span><span class="rc-val" id="rcCap-${r.id}">0/${r.maxCap}</span></div>
+            <div class="rc-row"><span class="rc-key">Masuk</span><span class="rc-val" style="color:var(--green)" id="rcIn-${r.id}">0</span></div>
+            <div class="rc-row"><span class="rc-key">Keluar</span><span class="rc-val" style="color:var(--red)" id="rcOut-${r.id}">0</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="rc-foot">
+        <div class="s-pill ${r.offline ? 'normal' : 'normal'}" id="rcSt-${r.id}" style="${r.offline ? 'color:var(--muted)' : ''}">
+          ${r.offline ? '<i class="bi bi-circle" style="color:var(--muted)"></i> Belum ada sensor' : '<i class="bi bi-circle-fill" style="color:var(--green)"></i> Normal'}
+        </div>
+        ${r.offline ? '<span style="font-size:11px;color:var(--muted);font-family:var(--mono)">Offline</span>'
+                    : `<button class="rc-detail-btn" onclick="navigate('room','${r.id}')">Lihat Detail <i class="bi bi-arrow-right"></i></button>`}
+      </div>
+      <div class="rc-prog"><div class="rc-prog-fill" id="rcProg-${r.id}" style="width:0%;background:var(--green)"></div></div>`;
+    g.appendChild(el);
+  });
+}
+
+// ══════════════════════════════════════════════
+// NAVIGATE
+// ══════════════════════════════════════════════
+function navigate(page, roomId) {
+  if (page === 'room' && activeRoom === roomId) return;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+
+  if (page === 'overview') {
+    document.getElementById('page-overview').classList.add('active');
+    document.getElementById('nav-overview').classList.add('active');
+    setText('topTitle','Overview Gedung'); setText('topSub','Semua ruangan \u00B7 Real-time');
+    activeRoom = null;
+  } else if (page === 'room' && roomId) {
+    const r = ROOMS.find(x=>x.id===roomId);
+    if (r && r.offline) return;
+    const st = RS[roomId];
+    st.cd = { labels:[], ts:[], cap:[], in:[], out:[] };
+    st.peak = 0;
+    st.sum = 0;
+    st.cnt = 0;
+    document.getElementById('page-room').classList.add('active');
+    document.getElementById('nav-'+roomId).classList.add('active');
+    setText('topTitle', r.name); setText('topSub', r.desc);
+    setText('dRoomName', r.name); setText('dRoomDesc', r.desc);
+    setText('dMaxCap', r.maxCap);
+    ROOMS.forEach(rx => {
+      const sx = RS[rx.id];
+      if (sx.mc)  { sx.mc.destroy();  sx.mc  = null; }
+      if (sx.mic) { sx.mic.destroy(); sx.mic = null; }
+      if (sx.hc)  { sx.hc.destroy();  sx.hc  = null; }
+    });
+    replaceCanvas('dMainChart');
+    replaceCanvas('dMiniChart');
+    replaceCanvas('dHistChart');
+    activeRoom = roomId;
+    initDetailCharts(roomId);
+    refreshDetail(roomId);
+    clearHistory();
+    loadTodayData(roomId);
+    loadSuhuTerbaru(roomId);
+    loadDeviceStatusLog(roomId);
+    const today = new Date().toISOString().slice(0,10);
+    document.getElementById('dHistDateFrom').value = today;
+    document.getElementById('dHistDateTo').value   = today;
+  }
+}
+
+// ══════════════════════════════════════════════
+// PROCESS PAYLOAD
+// ══════════════════════════════════════════════
+function processPayload(roomId, payload) {
+  const r  = ROOMS.find(x=>x.id===roomId);
+  if (!r) return;
+  const st = RS[roomId];
+  const now = new Date();
+  const ts  = now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const tsNum = now.getTime(); // timestamp numerik untuk chart
+  const dk  = now.toISOString().slice(0,10);
+  const hr  = now.getHours();
+
+  st.capacity = payload.capacity   ?? 0;
+  st.a_to_b   = payload.a_to_b     ?? 0;
+  st.b_to_a   = payload.b_to_a     ?? 0;
+  st.incr_in  = payload.increment?.a_to_b ?? 0;
+  st.incr_out = payload.increment?.b_to_a ?? 0;
+
+  const lastTs = st.cd.labels[st.cd.labels.length - 1];
+  if (lastTs !== ts) {
+    st.cd.labels.push(ts);
+    st.cd.ts.push(tsNum);
+    st.cd.cap.push(st.capacity);
+    st.cd.in.push(st.a_to_b);
+    st.cd.out.push(st.b_to_a);
+  }
+  if (st.cd.labels.length > 3000) { ['labels','ts','cap','in','out'].forEach(k=>st.cd[k].shift()); }
+
+  if (st.capacity > st.peak) st.peak = st.capacity;
+  st.sum += st.capacity; st.cnt++;
+
+  if (!RH[roomId][dk]) RH[roomId][dk] = { ch:new Array(24).fill(null), ii:new Array(24).fill(0), io:new Array(24).fill(0) };
+  const hd = RH[roomId][dk];
+  hd.ch[hr] = st.capacity;
+  // Hitung ii/io menggunakan selisih kumulatif (konsisten dengan mode Per Update)
+  // _lastAtoB/_lastBtoA = nilai kumulatif dari update sebelumnya di jam ini
+  if (hd._lastAtoB === undefined) hd._lastAtoB = st.a_to_b;
+  if (hd._lastBtoA === undefined) hd._lastBtoA = st.b_to_a;
+  // Jika berganti jam, reset referensi ke nilai awal jam baru
+  if (hd._lastHr !== hr) {
+    hd._lastAtoB = st.a_to_b - st.incr_in;
+    hd._lastBtoA = st.b_to_a - st.incr_out;
+    hd._lastHr   = hr;
+  }
+  hd.ii[hr] = st.a_to_b - hd._lastAtoB;
+  hd.io[hr] = st.b_to_a - hd._lastBtoA;
+
+  updateRoomCard(roomId);
+  updateSBBadge(roomId);
+  if (activeRoom === roomId) refreshDetail(roomId);
+  updateOvSummary();
+  checkAlerts();
+}
+
+// ══════════════════════════════════════════════
+// OVERVIEW UPDATE
+// ══════════════════════════════════════════════
+function updateRoomCard(roomId) {
+  const r  = ROOMS.find(x=>x.id===roomId);
+  const st = RS[roomId];
+  const pct = Math.min(100, Math.round(st.capacity/r.maxCap*100));
+  const ring = document.getElementById('mrRing-'+roomId);
+  if (ring) ring.style.strokeDashoffset = 176 - (pct/100)*176;
+  setText('mrPct-'+roomId, pct+'%');
+  setText('rcCap-'+roomId, `${st.capacity}/${r.maxCap}`);
+  setText('rcIn-'+roomId,  st.a_to_b);
+  setText('rcOut-'+roomId, st.b_to_a);
+  if (r.offline) return;
+  const st2 = document.getElementById('rcSt-'+roomId);
+  const pg  = document.getElementById('rcProg-'+roomId);
+  if (!st2||!pg) return;
+  if (pct >= 100) {st2.className = 's-pill full'; st2.innerHTML = '<i class="bi bi-x-circle-fill"></i> Penuh'; pg.style.background = 'var(--red)';} 
+  else if (pct >= 75) {st2.className = 's-pill warn'; st2.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Hampir Penuh'; pg.style.background = 'var(--yellow)';}
+  else if (pct >= 35) {st2.className = 's-pill normal'; st2.innerHTML = '<i class="bi bi-circle-fill"></i> Normal'; pg.style.background = 'var(--green)';}
+  else if (pct > 0) {st2.className = 's-pill normal'; st2.innerHTML = '<i class="bi bi-circle-fill"></i> Rendah'; pg.style.background = 'var(--green)';}
+  else {st2.className = 's-pill normal'; st2.innerHTML = '<i class="bi bi-circle-fill"></i> Kosong'; pg.style.background = 'var(--green)';}
+  pg.style.width = pct+'%';
+}
+
+function updateSBBadge(roomId) {
+  const r = ROOMS.find(x=>x.id===roomId);
+  if (r.offline) return;
+  const pct = Math.min(100, Math.round(RS[roomId].capacity/r.maxCap*100));
+  const el  = document.getElementById('sbb-'+roomId);
+  if (!el) return;
+  el.textContent = pct+'%';
+  el.className = 'sb-badge ' + (pct>=100?'full':pct>=80?'warn':'ok');
+}
+
+function updateOvSummary() {
+  let total=0, normal=0, alert=0;
+  ROOMS.filter(r=>!r.offline).forEach(r => {
+    const p = Math.round(RS[r.id].capacity/r.maxCap*100);
+    total += RS[r.id].capacity;
+    if (p>=75) alert++; else normal++;
+  });
+  setText('ovRooms',  ROOMS.filter(r=>!r.offline).length);
+  setText('ovPeople', total);
+  setText('ovNormal', normal);
+  setText('ovAlert',  alert);
+  const now = new Date();
+  setText('ovDate', now.toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' \u00B7 '+now.toLocaleTimeString('id-ID'));
+}
+
+// ══════════════════════════════════════════════
+// DETAIL UPDATE
+// ══════════════════════════════════════════════
+function refreshDetail(roomId) {
+  const r  = ROOMS.find(x=>x.id===roomId);
+  const st = RS[roomId];
+  const pct = Math.min(100, Math.round(st.capacity/r.maxCap*100));
+  const now = new Date();
+  const ts  = now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const ds  = now.toLocaleDateString('id-ID',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+
+  document.getElementById('dRing').style.strokeDashoffset = 377-(pct/100)*377;
+  setText('dPct', pct+'%'); setText('dCount', `${st.capacity}/${r.maxCap}`);
+  setText('dTime', ts); setText('dChartDate', ds);
+
+  const rs = document.getElementById('dRingStatus');
+  if (pct >= 100) {
+    rs.style.borderColor = 'var(--red)';
+    document.getElementById('dSDot').innerHTML = '<i class="bi bi-x-circle-fill" style="color:var(--red)"></i>';
+    setText('dSText','PENUH');
+  } else if (pct >= 75) {
+    rs.style.borderColor = 'var(--yellow)';
+    document.getElementById('dSDot').innerHTML = '<i class="bi bi-exclamation-triangle-fill" style="color:var(--yellow)"></i>';
+    setText('dSText','HAMPIR PENUH');
+  } else if (pct >= 35) {
+  rs.style.borderColor = 'var(--yellow)';
+  document.getElementById('dSDot').innerHTML = '<i class="bi bi-circle-fill" style="color:var(--green)"></i>';
+  setText('dSText', 'NORMAL');
+  } else if (pct > 0) {
+  rs.style.borderColor = 'var(--green)';
+  document.getElementById('dSDot').innerHTML = '<i class="bi bi-circle-fill" style="color:var(--green)"></i>';
+  setText('dSText', 'RENDAH');
+  } else {
+    rs.style.borderColor = 'var(--green)';
+    document.getElementById('dSDot').innerHTML = '<i class="bi bi-circle-fill" style="color:var(--green)"></i>';
+    setText('dSText','KOSONG');
+  }
+
+  document.getElementById('dOccBar').style.width = pct+'%';
+  setText('dIn', st.a_to_b); setText('dOut', st.b_to_a); setText('dCap', st.capacity);
+  const bmax = Math.max(st.a_to_b, st.b_to_a, 1);
+  document.getElementById('dBarIn').style.width  = (st.a_to_b/bmax*100)+'%';
+  document.getElementById('dBarOut').style.width = (st.b_to_a/bmax*100)+'%';
+
+  let lv,lc,suhu;
+  if(pct>=100){lv='PENUH';lc='br';suhu='20\u00B0C';}
+  else if(pct>=75){lv='HAMPIR PENUH';lc='by';suhu='21\u00B0C';}
+  else if(pct>=35){lv='NORMAL';lc='bg';suhu='22\u00B0C';}
+  else if(pct>0){lv='RENDAH';lc='bg';suhu='23\u00B0C';}
+  else{lv='KOSONG';lc='bg';suhu='24\u00B0C';}
+  const lvEl=document.getElementById('dLevel'); lvEl.textContent=lv; lvEl.className='badge '+lc;
+  // Update suhu di UI (nilai real-time dari kalkulasi lokal; DB jadi sumber kebenaran saat halaman dibuka)
+  setText('dSuhu', suhu);
+
+  updateDetailCharts(roomId);
+  setText('dPeak',st.peak); setText('dAvg',st.cnt?Math.round(st.sum/st.cnt):0); setText('dPctIns',pct+'%');
+
+
+  if (st.incr_in>0||st.incr_out>0) addNotif(st,pct,ts,r.name);
+}
+
+// ══════════════════════════════════════════════
+// CHARTS
+// ══════════════════════════════════════════════
+function replaceCanvas(id) {
+  const old = document.getElementById(id);
+  if (!old) return;
+  const newC = document.createElement('canvas');
+  newC.id = id;
+  old.parentNode.replaceChild(newC, old);
+}
+
+const CC = {
+  plugins:{
+    legend:{labels:{color:'#8b949e',font:{family:'Poppins',size:10},boxWidth:12}},
+    tooltip:{backgroundColor:'#1c2330',borderColor:'#30363d',borderWidth:1,titleColor:'#e6edf3',bodyColor:'#8b949e',titleFont:{family:'Poppins',size:10}}
+  },
+  scales:{
+    x:{ticks:{color:'#8b949e',font:{family:'Poppins',size:9},maxTicksLimit:8},grid:{color:'rgba(48,54,61,0.5)'}},
+    y:{ticks:{color:'#8b949e',font:{family:'Poppins',size:9}},grid:{color:'rgba(48,54,61,0.5)'},min:0}
+  }
+};
+
+function initDetailCharts(roomId) {
+  const st = RS[roomId];
+
+  // Gunakan tanggal hari ini sebagai base untuk min/max sumbu X
+  function todayAt(hh, mm) {
+    const d = new Date();
+    d.setHours(hh, mm, 0, 0);
+    return d;
+  }
+
+  st.mc = new Chart(document.getElementById('dMainChart').getContext('2d'),{
+    type:'line',
+    data:{labels:[],datasets:[
+      {label:'Kapasitas',data:[],borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,0.08)',fill:true,tension:0.4,pointRadius:3,borderWidth:2,spanGaps:false},
+      {label:'Masuk',   data:[],borderColor:'#3fb950',backgroundColor:'transparent',fill:false,tension:0.4,pointRadius:2,borderWidth:1.5,spanGaps:false},
+      {label:'Keluar',  data:[],borderColor:'#f85149',backgroundColor:'transparent',fill:false,tension:0.4,pointRadius:2,borderWidth:1.5,spanGaps:false},
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{duration:400},
+      plugins:{
+        legend:{labels:{color:'#8b949e',font:{family:'Poppins',size:10},boxWidth:12}, onClick: null, onHover: null},
+        tooltip:{backgroundColor:'#1c2330',borderColor:'#30363d',borderWidth:1,titleColor:'#e6edf3',bodyColor:'#8b949e',titleFont:{family:'Poppins',size:10}},
+        zoom:{
+          pan:{
+            enabled: true,
+            mode: 'x',
+            scaleMode: 'x',
+            rangeMin:{ x: todayAt(0,0).getTime() },
+            rangeMax:{ x: todayAt(23,59).getTime() },
+            onPanComplete({ chart }) {
+              const xScale = chart.scales.x;
+              const hardMin = todayAt(0,0).getTime();
+              const hardMax = todayAt(23,59).getTime();
+              const span = xScale.max - xScale.min;
+              if (xScale.min < hardMin) {
+                chart.options.scales.x.min = hardMin;
+                chart.options.scales.x.max = hardMin + span;
+                chart.update('none');
+              } else if (xScale.max > hardMax) {
+                chart.options.scales.x.max = hardMax;
+                chart.options.scales.x.min = hardMax - span;
+                chart.update('none');
+              }
+              onMainChartZoomOrPan(chart);
+            }
+          },
+          zoom:{
+            wheel:{
+              enabled: true,
+              speed: 0.1
+            },
+            pinch:{ enabled: true },
+            mode: 'x',
+            scaleMode: 'x',
+            rangeMin:{ x: todayAt(0,0).getTime() },
+            rangeMax:{ x: todayAt(23,59).getTime() },
+            onZoomComplete({ chart }) {
+              const xScale = chart.scales.x;
+              const hardMin = todayAt(0,0).getTime();
+              const hardMax = todayAt(23,59).getTime();
+              const minSpan = 5 * 60 * 1000; // minimal 5 menit
+              let cur = xScale.max - xScale.min;
+              if (cur < minSpan) {
+                const mid = (xScale.max + xScale.min) / 2;
+                chart.options.scales.x.min = Math.max(hardMin, mid - minSpan/2);
+                chart.options.scales.x.max = Math.min(hardMax, mid + minSpan/2);
+                chart.update('none');
+              }
+              if (xScale.min < hardMin || xScale.max > hardMax) {
+                chart.options.scales.x.min = Math.max(hardMin, xScale.min);
+                chart.options.scales.x.max = Math.min(hardMax, xScale.max);
+                chart.update('none');
+              }
+              onMainChartZoomOrPan(chart);
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          type:'time',
+          time:{
+            unit:'hour',
+            displayFormats:{ hour:'HH:mm', minute:'HH:mm' },
+            tooltipFormat:'HH:mm:ss'
+          },
+          min: todayAt(6,0).getTime(),
+          max: todayAt(18,0).getTime(),
+          ticks:{ color:'#8b949e', font:{family:'Poppins',size:9}, maxTicksLimit:13, source:'auto' },
+          grid:{ color:'rgba(48,54,61,0.5)' }
+        },
+        y:{ ticks:{color:'#8b949e',font:{family:'Poppins',size:9}}, grid:{color:'rgba(48,54,61,0.5)'}, min:0 }
+      }
+    }
+  });
+
+  st.mic = new Chart(document.getElementById('dMiniChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:[],datasets:[{label:'Orang',data:[],backgroundColor:'rgba(88,166,255,0.6)',borderRadius:3,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},
+      plugins:{legend:{display:false},tooltip:CC.plugins.tooltip},
+      scales:{x:{ticks:{color:'#8b949e',font:{family:'Poppins',size:9},maxTicksLimit:6},grid:{display:false}},
+              y:{ticks:{color:'#8b949e',font:{family:'Poppins',size:9}},grid:{color:'rgba(48,54,61,0.4)'},min:0}}}
+  });
+}
+
+// Konversi label waktu ke timestamp Date hari ini
+// Mendukung format: "HH:MM:SS", "HH.MM.SS", "HH:MM", "HH.MM"
+function labelToTs(lbl) {
+  if (!lbl) return Date.now();
+  // Normalisasi: ganti titik dengan titik dua
+  const norm = String(lbl).replace(/\./g, ':');
+  const parts = norm.split(':').map(Number);
+  const hh = parts[0] || 0;
+  const mm = parts[1] || 0;
+  const ss = parts[2] || 0;
+  if (isNaN(hh) || isNaN(mm)) return Date.now();
+  const d = new Date();
+  d.setHours(hh, mm, ss, 0);
+  return d.getTime();
+}
+
+// ── Status log cache (in-memory) ─────────────────────────
+// Diisi saat ruangan dibuka, diupdate realtime via WebSocket deviceStatus
+const deviceStatusCache = {}; // { roomId: [{status, ts}] }
+
+// Fetch status log untuk hari ini dari server dan simpan ke cache
+async function loadDeviceStatusLog(roomId) {
+  try {
+    const API = location.protocol === 'https:' ? '' : 'http://localhost:3000';
+    const today = new Date().toISOString().slice(0,10);
+    const res = await fetch(`${API}/api/room/${roomId}/status/range?from=${today}&to=${today}`);
+    if (!res.ok) return;
+    const rows = await res.json();
+    // rows: [{status, recorded_at}] urut ascending
+    deviceStatusCache[roomId] = rows.map(r => ({
+      status: r.status,
+      ts: new Date(r.recorded_at).getTime()
+    })).sort((a,b) => a.ts - b.ts);
+  } catch (e) {
+    console.warn('[StatusCache] Gagal load:', e.message);
+  }
+}
+
+// Tambahkan event realtime ke cache
+function appendDeviceStatusEvent(roomId, status) {
+  if (!deviceStatusCache[roomId]) deviceStatusCache[roomId] = [];
+  deviceStatusCache[roomId].push({ status, ts: Date.now() });
+}
+
+// Cek apakah suatu timestamp berada di periode offline berdasarkan cache
+// Return true jika ts berada pada saat perangkat sedang offline
+function isOfflineAt(roomId, ts) {
+  const log = deviceStatusCache[roomId];
+  if (!log || !log.length) return false; // tidak ada log = anggap online
+  let currentStatus = 'online'; // asumsi awal online sebelum log pertama
+  // Ambil status yang berlaku pada timestamp ts
+  for (const ev of log) {
+    if (ev.ts > ts) break;
+    currentStatus = ev.status;
+  }
+  return currentStatus === 'offline';
+}
+
+// Konversi semua data ke {x,y} untuk time scale (gunakan ts yang sudah tersimpan)
+// Garis diputus berdasarkan status online/offline dari device_status_log
+function filterRange(d) {
+  const cap=[], inn=[], out=[], labels=[];
+  const roomId = activeRoom;
+  d.labels.forEach((lbl, i) => {
+    const tsNum = (d.ts && d.ts[i] != null) ? d.ts[i] : labelToTs(lbl);
+    // Sisipkan null jika transisi dari online ke offline (atau ketika titik ini offline)
+    if (i > 0 && cap.length > 0) {
+      const prevTs = cap[cap.length - 1].x;
+      if (prevTs !== null) {
+        const prevOffline = isOfflineAt(roomId, prevTs);
+        const currOffline = isOfflineAt(roomId, tsNum);
+        // Putuskan garis jika ada offline event di antara dua titik ini
+        const log = deviceStatusCache[roomId];
+        let hasOfflineSegment = false;
+        if (log && log.length) {
+          for (const ev of log) {
+            if (ev.ts > prevTs && ev.ts < tsNum && ev.status === 'offline') {
+              hasOfflineSegment = true;
+              break;
+            }
+          }
+        }
+        if (hasOfflineSegment || (prevOffline !== currOffline && currOffline)) {
+          const midTs = prevTs + 1000;
+          cap.push({x: midTs, y: null});
+          inn.push({x: midTs, y: null});
+          out.push({x: midTs, y: null});
+          labels.push(null);
+        }
+      }
+    }
+    // Jika titik ini saat offline, tetap tampilkan tapi garis sudah diputus
+    cap.push({x: tsNum, y: d.cap[i]});
+    inn.push({x: tsNum, y: d.in[i]});
+    out.push({x: tsNum, y: d.out[i]});
+    labels.push(lbl);
+  });
+  return { cap, inn, out, labels };
+}
+
+function updateDetailCharts(roomId) {
+  const st=RS[roomId]; const d=st.cd;
+  if (!st.mc||!st.mic) return;
+
+  const f = filterRange(d);
+
+  [0,1,2].forEach(i=>st.mc.data.datasets[i].hidden=false);
+  if(chartMode==='capacity'){st.mc.data.datasets[1].hidden=true;st.mc.data.datasets[2].hidden=true;}
+  if(chartMode==='flow'){st.mc.data.datasets[0].hidden=true;}
+
+  // Untuk time scale: labels tidak perlu, data berupa {x,y}
+  st.mc.data.labels=[];
+  st.mc.data.datasets[0].data=[...f.cap];
+  st.mc.data.datasets[1].data=[...f.inn];
+  st.mc.data.datasets[2].data=[...f.out];
+  st.mc.update();
+
+  // Mini chart: 10 data terakhir (label biasa)
+  const l10=a=>a.slice(-10);
+  st.mic.data.labels=l10(f.labels);
+  st.mic.data.datasets[0].data=l10(f.cap).map(p=>p.y);
+  st.mic.update();
+}
+
+function setMode(mode,btn){
+  chartMode=mode;
+  document.querySelectorAll('.ct-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(activeRoom) updateDetailCharts(activeRoom);
+}
+
+function resetMainZoom() {
+  if (!activeRoom) return;
+  const st = RS[activeRoom];
+  if (!st.mc) return;
+  function todayAt(hh, mm) { const t = new Date(); t.setHours(hh, mm, 0, 0); return t; }
+  st.mc.options.scales.x.min = todayAt(6,0).getTime();
+  st.mc.options.scales.x.max = todayAt(18,0).getTime();
+  st.mc.update('none');
+  const btn = document.getElementById('btnResetZoom');
+  if (btn) btn.style.display = 'none';
+}
+
+function onMainChartZoomOrPan(chart) {
+  const btn = document.getElementById('btnResetZoom');
+  if (!btn) return;
+  function todayAt(hh, mm) { const t = new Date(); t.setHours(hh, mm, 0, 0); return t; }
+  const defaultMin = todayAt(6,0).getTime();
+  const defaultMax = todayAt(18,0).getTime();
+  const xScale = chart.scales.x;
+  const isDefault = Math.abs(xScale.min - defaultMin) < 60000 && Math.abs(xScale.max - defaultMax) < 60000;
+  btn.style.display = isDefault ? 'none' : 'inline-flex';
+}
+
+// ══════════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════════
+
+let histMode = 'hour'; // 'hour' | 'raw'
+
+function setHistMode(mode, btn) {
+  histMode = mode;
+  document.getElementById('histModeHour').classList.toggle('active', mode === 'hour');
+  document.getElementById('histModeRaw').classList.toggle('active', mode === 'raw');
+}
+
+// Generate list of date strings between two dates (inclusive)
+function dateRange(from, to) {
+  const dates = [];
+  const cur = new Date(from);
+  const end = new Date(to);
+  while (cur <= end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+// Fetch history for a single date, use cache if available
+async function fetchHistoryDate(roomId, ds) {
+  if (RH[roomId][ds] && RH[roomId][ds]._loaded) return RH[roomId][ds];
+  const API = location.protocol === 'https:' ? '' : 'http://localhost:3000';
+  const res  = await fetch(`${API}/api/room/${roomId}/history?date=${ds}`);
+  if (!res.ok) throw new Error('Response ' + res.status);
+  const data = await res.json();
+  data._loaded = true;
+  RH[roomId][ds] = data;
+  return data;
+}
+
+// Fetch raw (per-update) data for a single date
+// Backend harus punya endpoint: GET /api/room/:id/raw?date=YYYY-MM-DD
+// yang mengembalikan array of { label, capacity, a_to_b, b_to_a }
+async function fetchRawHistory(roomId, ds) {
+  const cacheKey = ds + '_raw';
+  if (RH[roomId][cacheKey] && RH[roomId][cacheKey]._loaded) return RH[roomId][cacheKey];
+  const API = location.protocol === 'https:' ? '' : 'http://localhost:3000';
+  const res = await fetch(`${API}/api/room/${roomId}/raw?date=${ds}`);
+  if (!res.ok) throw new Error('Response ' + res.status);
+  const rows = await res.json();
+  const data = { rows, _loaded: true };
+  RH[roomId][cacheKey] = data;
+  return data;
+}
+
+async function loadHistory() {
+  if (!activeRoom) return;
+  const dsFrom = document.getElementById('dHistDateFrom').value;
+  const dsTo   = document.getElementById('dHistDateTo').value;
+
+  const highlight = (id) => {
+    document.getElementById(id).style.borderColor = 'var(--red)';
+    setTimeout(() => document.getElementById(id).style.borderColor = '', 1500);
+  };
+
+  if (!dsFrom) { highlight('dHistDateFrom'); return; }
+  if (!dsTo)   { highlight('dHistDateTo');   return; }
+  if (dsFrom > dsTo) { highlight('dHistDateFrom'); highlight('dHistDateTo'); return; }
+
+  const dates = dateRange(dsFrom, dsTo);
+  if (dates.length > 31) {
+    alert('Rentang tanggal maksimal 31 hari.');
+    return;
+  }
+
+  try {
+    if (histMode === 'raw') {
+      // Per Update mode: fetch raw rows
+      const allRaw = await Promise.all(dates.map(d => fetchRawHistory(activeRoom, d)));
+      await renderHistoryRaw(activeRoom, dsFrom, dsTo, dates, allRaw);
+    } else {
+      // Per Jam: fetch hourly + raw (untuk hitung totalIn/totalOut yang akurat)
+      const [allData, allRaw] = await Promise.all([
+        Promise.all(dates.map(d => fetchHistoryDate(activeRoom, d))),
+        Promise.all(dates.map(d => fetchRawHistory(activeRoom, d)))
+      ]);
+      renderHistory(activeRoom, dsFrom, dsTo, dates, allData, allRaw);
+    }
+  } catch (err) {
+    console.error('Gagal ambil history:', err);
+    alert('Gagal mengambil data history dari server.\nPastikan backend sedang berjalan.');
+  }
+}
+
+// Merge multi-date history into hourly arrays (for single-day: 24 items; multi-day: per-day aggregation)
+function mergeHistory(dates, allData) {
+  // For single day: return per-hour (24 slots)
+  if (dates.length === 1) {
+    return { type: 'hourly', labels: Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00'), data: allData[0] };
+  }
+  // For multi-day: one label per day, aggregate peak/avg/in/out per day
+  const labels = dates.map(d => { const [y,m,dd]=d.split('-'); return `${dd}/${m}`; });
+  const cap = allData.map(d => Math.max(...d.ch.map(v => v ?? 0)));
+  const ii  = allData.map(d => d.ii.reduce((a,b)=>a+b,0));
+  const io  = allData.map(d => d.io.reduce((a,b)=>a+b,0));
+  const avgArr = allData.map(d => { const nz=d.ch.filter(v=>v>0); return nz.length?Math.round(nz.reduce((a,b)=>a+b,0)/nz.length):0; });
+  return { type: 'daily', labels, cap, ii, io, avgArr };
+}
+
+function renderHistory(roomId, dsFrom, dsTo, dates, allData, allRaw) {
+  const r = ROOMS.find(x => x.id === roomId);
+  const merged = mergeHistory(dates, allData);
+
+  // Aggregated stats
+  let peakVal = 0, peakDate = '', totalIn = 0, totalOut = 0, sumCap = 0, cntCap = 0;
+  allData.forEach((d, i) => {
+    const dayPeak = Math.max(...d.ch.map(v => v ?? 0));
+    if (dayPeak > peakVal) { peakVal = dayPeak; peakDate = dates[i]; }
+    const nz = d.ch.filter(v => v > 0);
+    sumCap += nz.reduce((a,b)=>a+b,0);
+    cntCap += nz.length;
+  });
+
+  // Hitung totalIn/totalOut dari raw data (selisih kumulatif), konsisten dengan Per Update
+  if (allRaw && allRaw.length) {
+    allRaw.forEach(rawDay => {
+      const rows = rawDay.rows || [];
+      if (!rows.length) return;
+      totalIn  += (rows[rows.length-1].a_to_b ?? 0) - (rows[0].a_to_b ?? 0);
+      totalOut += (rows[rows.length-1].b_to_a ?? 0) - (rows[0].b_to_a ?? 0);
+    });
+  } else {
+    // fallback jika raw tidak tersedia
+    allData.forEach(d => {
+      totalIn  += d.ii.reduce((a,b)=>a+b,0);
+      totalOut += d.io.reduce((a,b)=>a+b,0);
+    });
+  }
+  const avgVal = cntCap ? Math.round(sumCap / cntCap / r.maxCap * 100) : 0;
+
+  setText('hPeak', peakVal);
+  document.getElementById('hAvgSub').textContent = 'Okupansi/jam';
+  if (dates.length === 1) {
+    const ph = allData[0].ch.indexOf(peakVal);
+    setText('hPeakT', 'jam ' + String(ph).padStart(2,'0') + ':00');
+  } else {
+    const [py,pm,pd] = peakDate.split('-');
+    setText('hPeakT', `tgl ${pd}/${pm}/${py}`);
+  }
+  setText('hAvg', avgVal + '%');
+  setText('hIn', totalIn);
+  setText('hOut', totalOut);
+
+  const fmt = d => { const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; };
+  const rangeLabel = dsFrom === dsTo ? fmt(dsFrom) : `${fmt(dsFrom)} – ${fmt(dsTo)}`;
+  setText('hTitle', `Okupansi — ${rangeLabel} · ${r.name}`);
+
+  document.getElementById('dHistEmpty').style.display = 'none';
+  document.getElementById('dHistArea').style.display  = 'block';
+
+  replaceCanvas('dHistChart');
+  const st = RS[activeRoom];
+  const chartLabels = merged.labels;
+  const chartCap    = merged.type === 'hourly' ? merged.data.ch.map(v => v ?? 0) : merged.cap;
+
+  // Untuk hourly: hitung masuk/keluar per jam dari raw data (selisih kumulatif per jam)
+  let chartIn, chartOut;
+  if (merged.type === 'hourly' && allRaw && allRaw[0] && allRaw[0].rows) {
+    const iiPerHour = new Array(24).fill(0);
+    const ioPerHour = new Array(24).fill(0);
+    const rows = allRaw[0].rows;
+    // Kelompokkan per jam, ambil first & last, hitung selisih
+    const hourFirst = {}, hourLast = {};
+    rows.forEach(row => {
+      const ts = rawLabelToTs(row.label, dates[0]);
+      if (ts === null) return;
+      const hr = new Date(ts).getHours();
+      if (hourFirst[hr] === undefined) hourFirst[hr] = row;
+      hourLast[hr] = row;
+    });
+    Object.keys(hourLast).forEach(h => {
+      const hr = Number(h);
+      iiPerHour[hr] = (hourLast[hr].a_to_b ?? 0) - (hourFirst[hr].a_to_b ?? 0);
+      ioPerHour[hr] = (hourLast[hr].b_to_a ?? 0) - (hourFirst[hr].b_to_a ?? 0);
+    });
+    chartIn  = iiPerHour;
+    chartOut = ioPerHour;
+  } else {
+    chartIn  = merged.type === 'hourly' ? merged.data.ii : merged.ii;
+    chartOut = merged.type === 'hourly' ? merged.data.io : merged.io;
+  }
+
+  st.hc = new Chart(document.getElementById('dHistChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: chartLabels, datasets: [
+      { label:'Kapasitas',  data: chartCap, borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.1)', fill:true, tension:0.4, pointRadius:4, borderWidth:2,
+        pointBackgroundColor: chartCap.map(v => { const p=v/r.maxCap*100; return p>=100?'#f85149':p>=80?'#d29922':'#3fb950'; }) },
+      { label: merged.type==='hourly'?'Masuk/jam':'Masuk/hari',  data: chartIn,  borderColor:'#3fb950', fill:false, tension:0.3, pointRadius:3, borderWidth:1.5, borderDash:[4,3] },
+      { label: merged.type==='hourly'?'Keluar/jam':'Keluar/hari', data: chartOut, borderColor:'#f85149', fill:false, tension:0.3, pointRadius:3, borderWidth:1.5, borderDash:[4,3] },
+    ]},
+    options: { responsive:true, maintainAspectRatio:false, animation:{duration:600}, ...CC,
+      plugins: { ...CC.plugins, tooltip: { ...CC.plugins.tooltip, callbacks: {
+        title: i => merged.type==='hourly' ? `Jam ${i[0].label}` : `Tanggal ${i[0].label}`,
+        afterBody: i => `Occupancy: ${Math.round(i[0].raw/r.maxCap*100)}%`
+      }}}}
+  });
+
+  // Heatmap: single day only
+  const hm = document.getElementById('dHeatmap');
+  hm.innerHTML = '';
+  if (merged.type === 'hourly') {
+    chartCap.forEach((v, h) => {
+      const p = v / r.maxCap;
+      const bg = v===0?'rgba(48,54,61,0.4)':p>=1?'rgba(248,81,73,0.85)':p>=0.8?'rgba(251,133,0,0.75)':p>=0.5?'rgba(210,153,34,0.7)':'rgba(63,185,80,0.6)';
+      const cell = document.createElement('div');
+      cell.className = 'hm-cell'; cell.style.background = bg;
+      cell.title = `${String(h).padStart(2,'0')}:00 — ${v} orang (${Math.round(p*100)}%)`;
+      hm.appendChild(cell);
+    });
+  } else {
+    hm.closest('.hm-row').style.display = 'none';
+  }
+  if (merged.type === 'hourly') {
+    const hmRow = hm.closest('.hm-row');
+    if (hmRow) hmRow.style.display = '';
+  }
+}
+
+function clearHistory() {
+  document.getElementById('dHistEmpty').style.display = 'block';
+  document.getElementById('dHistArea').style.display  = 'none';
+  if (activeRoom && RS[activeRoom].hc) { RS[activeRoom].hc.destroy(); RS[activeRoom].hc = null; }
+}
+
+// ── Konversi label row ke timestamp numerik ──
+function rawLabelToTs(label, dateStr) {
+  // label bisa: "HH:MM:SS", "YYYY-MM-DD HH:MM:SS"
+  if (!label) return null;
+  let isoStr;
+  if (label.includes(' ')) {
+    // format "YYYY-MM-DD HH:MM:SS"
+    isoStr = label.replace(' ', 'T');
+  } else {
+    // format "HH:MM:SS" — gabungkan dengan dateStr
+    isoStr = (dateStr || new Date().toISOString().slice(0,10)) + 'T' + label;
+  }
+  const ts = new Date(isoStr).getTime();
+  return isNaN(ts) ? null : ts;
+}
+
+// ── Per Update (raw) renderer ──
+async function renderHistoryRaw(roomId, dsFrom, dsTo, dates, allRaw) {
+  const r = ROOMS.find(x => x.id === roomId);
+
+  // Flatten semua baris, tambahkan info tanggal dari mana row itu berasal
+  const allRows = allRaw.flatMap((d, i) =>
+    (d.rows || []).map(row => ({ ...row, _date: dates[i] }))
+  );
+
+  if (!allRows.length) {
+    document.getElementById('dHistEmpty').style.display = 'block';
+    document.getElementById('dHistEmpty').innerHTML = '<div style="font-size:24px;margin-bottom:8px;"><i class="bi bi-inbox-fill"></i></div>Tidak ada data untuk rentang tanggal ini.';
+    document.getElementById('dHistArea').style.display = 'none';
+    const rz = document.getElementById('btnResetHistZoom');
+    if (rz) rz.style.display = 'none';
+    return;
+  }
+
+  // Fetch status log untuk rentang tanggal ini
+  let statusEvents = [];
+  try {
+    const API = location.protocol === 'https:' ? '' : 'http://localhost:3000';
+    const res = await fetch(`${API}/api/room/${roomId}/status/range?from=${dsFrom}&to=${dsTo}`);
+    if (res.ok) {
+      const rows = await res.json();
+      statusEvents = rows.map(r => ({
+        status: r.status,
+        ts: new Date(r.recorded_at).getTime()
+      })).sort((a,b) => a.ts - b.ts);
+    }
+  } catch(e) {
+    console.warn('[History] Gagal load status log:', e.message);
+  }
+
+  // Helper: cek apakah ts berada dalam periode offline berdasarkan statusEvents
+  function isHistOfflineAt(ts) {
+    if (!statusEvents.length) return false;
+    let cur = 'online';
+    for (const ev of statusEvents) {
+      if (ev.ts > ts) break;
+      cur = ev.status;
+    }
+    return cur === 'offline';
+  }
+
+  // Helper: ada event offline antara dua timestamp?
+  function hasOfflineBetween(t1, t2) {
+    return statusEvents.some(ev => ev.ts > t1 && ev.ts < t2 && ev.status === 'offline');
+  }
+
+  // Konversi ke {x: timestamp, y: value} dengan gap detection berdasarkan status log
+  const dataCap = [], dataIn = [], dataOut = [];
+  allRows.forEach(row => {
+    const ts = rawLabelToTs(row.label, row._date);
+    if (ts === null) return;
+    // Sisipkan null jika ada transisi offline di antara titik sebelumnya dan titik ini
+    if (dataCap.length > 0) {
+      const prevTs = dataCap[dataCap.length - 1].x;
+      if (prevTs !== null) {
+        if (hasOfflineBetween(prevTs, ts) || (!isHistOfflineAt(prevTs) && isHistOfflineAt(ts))) {
+          const midTs = prevTs + 1000;
+          dataCap.push({ x: midTs, y: null });
+          dataIn.push({ x: midTs, y: null });
+          dataOut.push({ x: midTs, y: null });
+        }
+      }
+    }
+    dataCap.push({ x: ts, y: row.capacity ?? 0 });
+    dataIn.push({ x: ts, y: row.a_to_b ?? 0 });
+    dataOut.push({ x: ts, y: row.b_to_a ?? 0 });
+  });
+
+  // Stats — total masuk/keluar = nilai akhir dikurangi nilai awal (karena a_to_b/b_to_a kumulatif)
+  const caps    = dataCap.map(p => p.y);
+  const peakVal = caps.length ? Math.max(...caps) : 0;
+  const peakPt  = dataCap[caps.indexOf(peakVal)];
+  const firstRow = allRows[0];
+  const lastRow  = allRows[allRows.length - 1];
+  const totalIn  = (lastRow.a_to_b ?? 0) - (firstRow.a_to_b ?? 0);
+  const totalOut = (lastRow.b_to_a ?? 0) - (firstRow.b_to_a ?? 0);
+  const nz = caps.filter(v => v > 0);
+  const avgVal = nz.length ? Math.round(nz.reduce((a, b) => a + b, 0) / nz.length / r.maxCap * 100) : 0;
+
+  setText('hPeak', peakVal);
+  if (peakPt) {
+    setText('hPeakT', new Date(peakPt.x).toLocaleString('id-ID', {
+      day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', second:'2-digit'
+    }));
+  } else {
+    setText('hPeakT', '—');
+  }
+  setText('hAvg', avgVal + '%');
+  setText('hIn', totalIn);
+  setText('hOut', totalOut);
+  document.getElementById('hAvgSub').textContent = 'Okupansi/update';
+
+  const fmt = d => { const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; };
+  const rangeLabel = dsFrom === dsTo ? fmt(dsFrom) : `${fmt(dsFrom)} – ${fmt(dsTo)}`;
+  setText('hTitle', `Okupansi Per Update — ${rangeLabel} · ${r.name}`);
+
+  document.getElementById('dHistEmpty').style.display = 'none';
+  document.getElementById('dHistArea').style.display  = 'block';
+
+  replaceCanvas('dHistChart');
+
+  // Tentukan batas default tampilan: 06:00–18:00 di hari pertama (single day) 
+  // atau full span dari tanggal pertama jam 00:00 sampai terakhir jam 23:59 (multi-day)
+  function dateAt(ds, hh, mm) {
+    const d = new Date(ds + 'T00:00:00');
+    d.setHours(hh, mm, 0, 0);
+    return d.getTime();
+  }
+  const hardMin  = dateAt(dsFrom, 0, 0);
+  const hardMax  = dateAt(dsTo,  23, 59);
+  const defaultMin = dates.length === 1 ? dateAt(dsFrom, 6, 0)  : hardMin;
+  const defaultMax = dates.length === 1 ? dateAt(dsFrom, 18, 0) : hardMax;
+
+  // Tombol reset
+  const rz = document.getElementById('btnResetHistZoom');
+  if (rz) rz.style.display = 'none';
+
+  function checkHistResetBtn(chart) {
+    if (!rz) return;
+    const xs = chart.scales.x;
+    const isDefault = Math.abs(xs.min - defaultMin) < 60000 && Math.abs(xs.max - defaultMax) < 60000;
+    rz.style.display = isDefault ? 'none' : 'inline-flex';
+  }
+
+  const pr = dataCap.length > 300; // padat: sembunyikan titik
+  const st = RS[activeRoom];
+  st.hc = new Chart(document.getElementById('dHistChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      datasets: [
+        { label:'Kapasitas', data: dataCap, borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.08)',
+          fill:true, tension:0.4, pointRadius: pr?0:3, borderWidth:2, spanGaps:false,
+          pointBackgroundColor: dataCap.map(p => {
+            if (p.y === null) return 'transparent';
+            const pct = p.y/r.maxCap*100;
+            return pct>=100?'#f85149':pct>=80?'#d29922':'#3fb950';
+          })
+        },
+        { label:'Masuk',  data: dataIn,  borderColor:'#3fb950', fill:false, tension:0.3,
+          pointRadius: pr?0:2, borderWidth:1.5, borderDash:[4,3], spanGaps:false },
+        { label:'Keluar', data: dataOut, borderColor:'#f85149', fill:false, tension:0.3,
+          pointRadius: pr?0:2, borderWidth:1.5, borderDash:[4,3], spanGaps:false },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+      plugins: {
+        legend: { labels:{ color:'#8b949e', font:{family:'Poppins',size:10}, boxWidth:12 } },
+        tooltip: {
+          backgroundColor:'#1c2330', borderColor:'#30363d', borderWidth:1,
+          titleColor:'#e6edf3', bodyColor:'#8b949e', titleFont:{family:'Poppins',size:10},
+          callbacks: {
+            title: items => new Date(items[0].parsed.x).toLocaleString('id-ID',
+              { day:'2-digit', month:'short', year: dates.length>1?'numeric':undefined,
+                hour:'2-digit', minute:'2-digit', second:'2-digit' }),
+            afterBody: items => `Occupancy: ${Math.round(items[0].parsed.y/r.maxCap*100)}%`
+          }
+        },
+        zoom: {
+          pan: {
+            enabled: true, mode: 'x',
+            rangeMin: { x: hardMin }, rangeMax: { x: hardMax },
+            onPanComplete({ chart }) {
+              const xs = chart.scales.x;
+              const span = xs.max - xs.min;
+              if (xs.min < hardMin) {
+                chart.options.scales.x.min = hardMin;
+                chart.options.scales.x.max = hardMin + span;
+                chart.update('none');
+              } else if (xs.max > hardMax) {
+                chart.options.scales.x.max = hardMax;
+                chart.options.scales.x.min = hardMax - span;
+                chart.update('none');
+              }
+              checkHistResetBtn(chart);
+            }
+          },
+          zoom: {
+            wheel: { enabled: true, speed: 0.1 },
+            pinch: { enabled: true },
+            mode: 'x',
+            rangeMin: { x: hardMin }, rangeMax: { x: hardMax },
+            onZoomComplete({ chart }) {
+              const xs = chart.scales.x;
+              const minSpan = 5 * 60 * 1000;
+              if (xs.max - xs.min < minSpan) {
+                const mid = (xs.max + xs.min) / 2;
+                chart.options.scales.x.min = Math.max(hardMin, mid - minSpan/2);
+                chart.options.scales.x.max = Math.min(hardMax, mid + minSpan/2);
+                chart.update('none');
+              }
+              if (xs.min < hardMin || xs.max > hardMax) {
+                chart.options.scales.x.min = Math.max(hardMin, xs.min);
+                chart.options.scales.x.max = Math.min(hardMax, xs.max);
+                chart.update('none');
+              }
+              checkHistResetBtn(chart);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: {
+            unit: dates.length === 1 ? 'hour' : 'day',
+            displayFormats: { hour:'HH:mm', minute:'HH:mm', day:'dd/MM' },
+            tooltipFormat: dates.length === 1 ? 'HH:mm:ss' : 'dd/MM/yyyy HH:mm:ss'
+          },
+          min: defaultMin,
+          max: defaultMax,
+          ticks: { color:'#8b949e', font:{family:'Poppins',size:9}, maxTicksLimit:13, source:'auto' },
+          grid: { color:'rgba(48,54,61,0.5)' }
+        },
+        y: { ticks:{color:'#8b949e',font:{family:'Poppins',size:9}}, grid:{color:'rgba(48,54,61,0.5)'}, min:0 }
+      }
+    }
+  });
+
+  // Simpan default bounds untuk reset
+  st.hc._histDefaultMin = defaultMin;
+  st.hc._histDefaultMax = defaultMax;
+
+  // Heatmap: hanya untuk single day
+  const hm = document.getElementById('dHeatmap');
+  hm.innerHTML = '';
+  if (dates.length === 1) {
+    const hourBuckets = Array(24).fill(0);
+    const hourCounts  = Array(24).fill(0);
+    allRows.forEach(row => {
+      const ts = rawLabelToTs(row.label, row._date);
+      if (ts === null) return;
+      const h = new Date(ts).getHours();
+      hourBuckets[h] += row.capacity ?? 0;
+      hourCounts[h]++;
+    });
+    const hourAvg = hourBuckets.map((s, i) => hourCounts[i] ? Math.round(s / hourCounts[i]) : 0);
+    hourAvg.forEach((v, h) => {
+      const p = v / r.maxCap;
+      const bg = v===0?'rgba(48,54,61,0.4)':p>=1?'rgba(248,81,73,0.85)':p>=0.8?'rgba(251,133,0,0.75)':p>=0.5?'rgba(210,153,34,0.7)':'rgba(63,185,80,0.6)';
+      const cell = document.createElement('div');
+      cell.className = 'hm-cell'; cell.style.background = bg;
+      cell.title = `${String(h).padStart(2,'0')}:00 — rata-rata ${v} orang (${Math.round(p*100)}%)`;
+      hm.appendChild(cell);
+    });
+    hm.closest('.hm-row').style.display = '';
+  } else {
+    hm.closest('.hm-row').style.display = 'none';
+  }
+}
+
+function resetHistZoom() {
+  if (!activeRoom) return;
+  const st = RS[activeRoom];
+  if (!st.hc) return;
+  const dMin = st.hc._histDefaultMin;
+  const dMax = st.hc._histDefaultMax;
+  if (!dMin || !dMax) return;
+  st.hc.options.scales.x.min = dMin;
+  st.hc.options.scales.x.max = dMax;
+  st.hc.update('none');
+  const rz = document.getElementById('btnResetHistZoom');
+  if (rz) rz.style.display = 'none';
+}
+
+
+// ══════════════════════════════════════════════
+// DOWNLOAD EXCEL (.xlsx) — 2 sheet, styled
+// ══════════════════════════════════════════════
+async function downloadExcel() {
+  if (!activeRoom) { alert('Pilih ruangan terlebih dahulu.'); return; }
+  const dsFrom = document.getElementById('dHistDateFrom').value;
+  const dsTo   = document.getElementById('dHistDateTo').value;
+  if (!dsFrom || !dsTo) { alert('Pilih rentang tanggal terlebih dahulu.'); return; }
+  if (dsFrom > dsTo)    { alert('Tanggal mulai harus lebih awal dari tanggal akhir.'); return; }
+
+  const dates = dateRange(dsFrom, dsTo);
+  if (dates.length > 31) { alert('Rentang tanggal maksimal 31 hari.'); return; }
+
+  const btn = document.getElementById('btnDownloadExcel');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Menyiapkan file...';
+
+  try {
+    const r = ROOMS.find(x => x.id === activeRoom);
+    const fmtDate = d => { const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; };
+
+    const hdrStyle = {
+      font: { bold:true, color:{rgb:'FFFFFF'}, sz:11 },
+      fill: { fgColor:{rgb:'1F3864'} },
+      alignment: { horizontal:'center', vertical:'center', wrapText:true },
+      border: { top:{style:'thin',color:{rgb:'FFFFFF'}}, bottom:{style:'thin',color:{rgb:'FFFFFF'}},
+                left:{style:'thin',color:{rgb:'FFFFFF'}}, right:{style:'thin',color:{rgb:'FFFFFF'}} }
+    };
+    const rowEven  = { fill:{fgColor:{rgb:'EBF0FA'}} };
+    const rowOdd   = { fill:{fgColor:{rgb:'FFFFFF'}} };
+    const numFmt   = { alignment:{horizontal:'center'} };
+    const pctStyle = (pct) => ({
+      font: { bold:true, color:{rgb: pct>=100?'C00000':pct>=80?'C55A11':'375623'} },
+      fill: { fgColor:{rgb: pct>=100?'FFCCCC':pct>=80?'FCE4D6':'E2EFDA'} },
+      alignment: {horizontal:'center'}
+    });
+    const titleStyle = { font:{bold:true,sz:13,color:{rgb:'1F3864'}}, alignment:{horizontal:'left'} };
+    const subStyle   = { font:{italic:true,sz:10,color:{rgb:'808080'}} };
+    function cell(v,s)    { return {v, s:s||{}}; }
+    function numCell(v,s) { return {v, t:'n', s:s||numFmt}; }
+
+    const wb = XLSX.utils.book_new();
+    const fmtFn = d => d.replace(/-/g,'');
+    let filename;
+
+    if (histMode === 'raw') {
+      // ════════════════════════════════
+      // MODE PER UPDATE
+      // ════════════════════════════════
+      const allRaw  = await Promise.all(dates.map(d => fetchRawHistory(activeRoom, d)));
+      const allRows = allRaw.flatMap((d,i) => (d.rows||[]).map(row => ({...row, _date:dates[i]})));
+
+      // Sheet 1 — Ringkasan per hari
+      const ws1 = {'!merges':[]};
+      let R = 0;
+      ws1[XLSX.utils.encode_cell({r:R,c:0})] = {v:`Laporan Okupansi Per Update — ${r.name}`, s:titleStyle};
+      ws1['!merges'].push({s:{r:R,c:0},e:{r:R,c:6}});
+      R++;
+      ws1[XLSX.utils.encode_cell({r:R,c:0})] = {v:`Periode: ${fmtDate(dsFrom)}${dsFrom!==dsTo?' s/d '+fmtDate(dsTo):''}      Kapasitas Maks: ${r.maxCap} orang      Diekspor: ${new Date().toLocaleString('id-ID')}`, s:subStyle};
+      ws1['!merges'].push({s:{r:R,c:0},e:{r:R,c:6}});
+      R++; R++;
+      ['Tanggal','Peak (orang)','Waktu Peak','Rata-rata Occ (%)','Total Masuk','Total Keluar','Occupancy Maks (%)']
+        .forEach((h,c) => { ws1[XLSX.utils.encode_cell({r:R,c})] = cell(h,hdrStyle); });
+      R++;
+      dates.forEach((ds,di) => {
+        const rows = allRaw[di].rows||[];
+        if (!rows.length) return;
+        const caps  = rows.map(rw => rw.capacity??0);
+        const peakV = Math.max(...caps);
+        const peakRw= rows[caps.indexOf(peakV)];
+        const nz    = caps.filter(v=>v>0);
+        const avg   = nz.length ? Math.round(nz.reduce((a,b)=>a+b,0)/nz.length/r.maxCap*100) : 0;
+        const tIn   = (rows[rows.length-1].a_to_b??0)-(rows[0].a_to_b??0);
+        const tOut  = (rows[rows.length-1].b_to_a??0)-(rows[0].b_to_a??0);
+        const pct   = Math.round(peakV/r.maxCap*100);
+        const bg    = di%2===0?rowEven:rowOdd;
+        [cell(fmtDate(ds),{...bg,alignment:{horizontal:'center'}}),
+         numCell(peakV,{...bg,alignment:{horizontal:'center'}}),
+         cell(peakRw.label||'—',{...bg,alignment:{horizontal:'center'}}),
+         cell(avg+'%',{...bg,alignment:{horizontal:'center'}}),
+         numCell(tIn,{...bg,font:{color:{rgb:'375623'}},alignment:{horizontal:'center'}}),
+         numCell(tOut,{...bg,font:{color:{rgb:'C00000'}},alignment:{horizontal:'center'}}),
+         {v:pct,t:'n',s:pctStyle(pct)}
+        ].forEach((c2,c) => { ws1[XLSX.utils.encode_cell({r:R,c})] = c2; });
+        R++;
+      });
+      ws1['!ref']  = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:R-1,c:6}});
+      ws1['!cols'] = [18,16,14,20,14,14,20].map(w=>({wch:w}));
+      ws1['!rows'] = [{hpt:14},{hpt:12},{hpt:6},{hpt:28}];
+      XLSX.utils.book_append_sheet(wb, ws1, 'Ringkasan');
+
+      // Sheet 2 — Detail semua baris per update
+      const ws2 = {'!merges':[]};
+      let R2 = 0;
+      ws2[XLSX.utils.encode_cell({r:R2,c:0})] = {v:`Detail Per Update — ${r.name}`, s:titleStyle};
+      ws2['!merges'].push({s:{r:R2,c:0},e:{r:R2,c:5}});
+      R2++;
+      ws2[XLSX.utils.encode_cell({r:R2,c:0})] = {v:`Periode: ${fmtDate(dsFrom)}${dsFrom!==dsTo?' s/d '+fmtDate(dsTo):''}`, s:subStyle};
+      ws2['!merges'].push({s:{r:R2,c:0},e:{r:R2,c:5}});
+      R2++; R2++;
+      ['Tanggal','Waktu','Kapasitas (orang)','Total Masuk (a\u2192b)','Total Keluar (b\u2192a)','Occupancy (%)']
+        .forEach((h,c) => { ws2[XLSX.utils.encode_cell({r:R2,c})] = cell(h,hdrStyle); });
+      R2++;
+      let ri2 = 0;
+      allRows.forEach((row,ri) => {
+        const capV = row.capacity??0;
+        const pct  = Math.round(capV/r.maxCap*100);
+        const bg   = ri2%2===0?rowEven:rowOdd;
+        [cell(fmtDate(row._date),{...bg,alignment:{horizontal:'center'}}),
+         cell(row.label||'—',   {...bg,alignment:{horizontal:'center'}}),
+         numCell(capV,          {...bg,alignment:{horizontal:'center'}}),
+         numCell(row.a_to_b??0, {...bg,font:{color:{rgb:'375623'}},alignment:{horizontal:'center'}}),
+         numCell(row.b_to_a??0, {...bg,font:{color:{rgb:'C00000'}},alignment:{horizontal:'center'}}),
+         {v:pct,t:'n',s:pctStyle(pct)}
+        ].forEach((c2,c) => { ws2[XLSX.utils.encode_cell({r:R2,c})] = c2; });
+        R2++; ri2++;
+        const nextRow = allRows[ri+1];
+        if (nextRow && nextRow._date !== row._date) { R2++; ri2=0; }
+      });
+      ws2['!ref']  = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:R2,c:5}});
+      ws2['!cols'] = [14,12,18,18,18,18].map(w=>({wch:w}));
+      ws2['!rows'] = [{hpt:14},{hpt:12},{hpt:6},{hpt:28}];
+      XLSX.utils.book_append_sheet(wb, ws2, 'Detail Per Update');
+
+      filename = `Okupansi_PerUpdate_${r.id}_${fmtFn(dsFrom)}${dsFrom!==dsTo?'_'+fmtFn(dsTo):''}.xlsx`;
+
+    } else {
+      // ════════════════════════════════
+      // MODE PER JAM
+      // ════════════════════════════════
+      const [allData, allRaw] = await Promise.all([
+        Promise.all(dates.map(d => fetchHistoryDate(activeRoom, d))),
+        Promise.all(dates.map(d => fetchRawHistory(activeRoom, d)))
+      ]);
+
+      // Hitung masuk/keluar per jam dari raw data (selisih kumulatif), konsisten dengan grafik
+      const iiPerDay = dates.map((ds, di) => {
+        const rows = allRaw[di].rows || [];
+        const iiH = new Array(24).fill(0), ioH = new Array(24).fill(0);
+        const hourFirst = {}, hourLast = {};
+        rows.forEach(row => {
+          const ts = rawLabelToTs(row.label, ds);
+          if (ts === null) return;
+          const hr = new Date(ts).getHours();
+          if (hourFirst[hr] === undefined) hourFirst[hr] = row;
+          hourLast[hr] = row;
+        });
+        Object.keys(hourLast).forEach(h => {
+          const hr = Number(h);
+          iiH[hr] = (hourLast[hr].a_to_b ?? 0) - (hourFirst[hr].a_to_b ?? 0);
+          ioH[hr] = (hourLast[hr].b_to_a ?? 0) - (hourFirst[hr].b_to_a ?? 0);
+        });
+        const rows2 = allRaw[di].rows || [];
+        const tIn  = rows2.length ? (rows2[rows2.length-1].a_to_b??0) - (rows2[0].a_to_b??0) : 0;
+        const tOut = rows2.length ? (rows2[rows2.length-1].b_to_a??0) - (rows2[0].b_to_a??0) : 0;
+        return { iiH, ioH, tIn, tOut };
+      });
+
+      // Sheet 1 — Ringkasan per hari
+      const ws1 = {'!merges':[]};
+      let R = 0;
+      ws1[XLSX.utils.encode_cell({r:R,c:0})] = {v:`Laporan Okupansi ${r.name}`, s:titleStyle};
+      ws1['!merges'].push({s:{r:R,c:0},e:{r:R,c:6}});
+      R++;
+      ws1[XLSX.utils.encode_cell({r:R,c:0})] = {v:`Periode: ${fmtDate(dsFrom)}${dsFrom!==dsTo?' s/d '+fmtDate(dsTo):''}      Kapasitas Maks: ${r.maxCap} orang      Diekspor: ${new Date().toLocaleString('id-ID')}`, s:subStyle};
+      ws1['!merges'].push({s:{r:R,c:0},e:{r:R,c:6}});
+      R++; R++;
+      ['Tanggal','Peak (orang)','Jam Peak','Rata-rata/Jam','Total Masuk','Total Keluar','Occupancy Maks (%)']
+        .forEach((h,c) => { ws1[XLSX.utils.encode_cell({r:R,c})] = cell(h,hdrStyle); });
+      R++;
+      dates.forEach((ds,di) => {
+        const d=allData[di], cap=d.ch.map(v=>v??0);
+        const peakV=Math.max(...cap), peakH=cap.indexOf(peakV);
+        const nz=cap.filter(v=>v>0);
+        const avg=nz.length?Math.round(nz.reduce((a,b)=>a+b,0)/nz.length):0;
+        const tIn=iiPerDay[di].tIn, tOut=iiPerDay[di].tOut;
+        const pct=Math.round(peakV/r.maxCap*100), bg=di%2===0?rowEven:rowOdd;
+        [cell(fmtDate(ds),{...bg,alignment:{horizontal:'center'}}),
+         numCell(peakV,{...bg,alignment:{horizontal:'center'}}),
+         cell(`${String(peakH).padStart(2,'0')}:00`,{...bg,alignment:{horizontal:'center'}}),
+         numCell(avg,{...bg,alignment:{horizontal:'center'}}),
+         numCell(tIn,{...bg,font:{color:{rgb:'375623'}},alignment:{horizontal:'center'}}),
+         numCell(tOut,{...bg,font:{color:{rgb:'C00000'}},alignment:{horizontal:'center'}}),
+         {v:pct,t:'n',s:pctStyle(pct)}
+        ].forEach((c2,c) => { ws1[XLSX.utils.encode_cell({r:R,c})] = c2; });
+        R++;
+      });
+      ws1['!ref']  = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:R-1,c:6}});
+      ws1['!cols'] = [18,16,12,18,14,14,20].map(w=>({wch:w}));
+      ws1['!rows'] = [{hpt:14},{hpt:12},{hpt:6},{hpt:28}];
+      XLSX.utils.book_append_sheet(wb, ws1, 'Ringkasan');
+
+      // Sheet 2 — Detail per jam
+      const ws2 = {'!merges':[]};
+      let R2=0;
+      ws2[XLSX.utils.encode_cell({r:R2,c:0})] = {v:`Detail Per Jam  ${r.name}`, s:titleStyle};
+      ws2['!merges'].push({s:{r:R2,c:0},e:{r:R2,c:5}});
+      R2++;
+      ws2[XLSX.utils.encode_cell({r:R2,c:0})] = {v:`Periode: ${fmtDate(dsFrom)}${dsFrom!==dsTo?' s/d '+fmtDate(dsTo):''}`, s:subStyle};
+      ws2['!merges'].push({s:{r:R2,c:0},e:{r:R2,c:5}});
+      R2++; R2++;
+      ['Tanggal','Jam','Kapasitas (orang)','Masuk / Jam','Keluar / Jam','Occupancy (%)']
+        .forEach((h,c) => { ws2[XLSX.utils.encode_cell({r:R2,c})] = cell(h,hdrStyle); });
+      R2++;
+      let ri2=0;
+      dates.forEach((ds,di) => {
+        const d=allData[di];
+        for (let h=0;h<24;h++) {
+          const capV=d.ch[h]??0, pct=Math.round(capV/r.maxCap*100), bg=ri2%2===0?rowEven:rowOdd;
+          [cell(fmtDate(ds),{...bg,alignment:{horizontal:'center'}}),
+           cell(`${String(h).padStart(2,'0')}:00`,{...bg,alignment:{horizontal:'center'}}),
+           numCell(capV,{...bg,alignment:{horizontal:'center'}}),
+           numCell(iiPerDay[di].iiH[h],{...bg,font:{color:{rgb:'375623'}},alignment:{horizontal:'center'}}),
+           numCell(iiPerDay[di].ioH[h],{...bg,font:{color:{rgb:'C00000'}},alignment:{horizontal:'center'}}),
+           {v:pct,t:'n',s:pctStyle(pct)}
+          ].forEach((c2,c) => { ws2[XLSX.utils.encode_cell({r:R2,c})] = c2; });
+          R2++; ri2++;
+        }
+        if (dates.length>1&&di<dates.length-1) { R2++; ri2=0; }
+      });
+      ws2['!ref']  = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:R2,c:5}});
+      ws2['!cols'] = [14,10,18,14,14,18].map(w=>({wch:w}));
+      ws2['!rows'] = [{hpt:14},{hpt:12},{hpt:6},{hpt:28}];
+      XLSX.utils.book_append_sheet(wb, ws2, 'Detail Per Jam');
+
+      filename = `Okupansi_${r.id}_${fmtFn(dsFrom)}${dsFrom!==dsTo?'_'+fmtFn(dsTo):''}.xlsx`;
+    }
+
+    XLSX.writeFile(wb, filename);
+
+  } catch (err) {
+    console.error('Gagal download:', err);
+    alert('Gagal mengambil data. Pastikan backend sedang berjalan.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-file-earmark-excel-fill"></i> Download Excel';
+  }
+}
+
+
+// ══════════════════════════════════════════════
+// NOTIF & ALERTS
+// ══════════════════════════════════════════════
+function addNotif(st,pct,ts,roomName){
+  const list=document.getElementById('dNotifList');
+  const ph=list.querySelector('[data-ph]'); if(ph) ph.remove();
+  let icon,msg,color;
+  if(pct>=100){icon='<i class="bi bi-x-circle-fill"></i>';msg=`${roomName} PENUH! ${st.capacity} orang.`; color='var(--red)';} 
+  else if(pct>=80){icon='<i class="bi bi-exclamation-triangle-fill"></i>'; msg=`${roomName} hampir penuh (${pct}%).`; color='var(--yellow)';} 
+  else if(st.incr_in>0&&st.incr_out>0){icon='<i class="bi bi-arrow-left-right"></i>'; msg=`${st.incr_in} masuk, ${st.incr_out} keluar. Total: ${st.capacity}.`; color='var(--accent)';} 
+  else if(st.incr_in>0){icon='<i class="bi bi-arrow-down-circle-fill"></i>'; msg=`${st.incr_in} masuk. Total: ${st.capacity}.`; color='var(--green)';} 
+  else {icon='<i class="bi bi-arrow-up-circle-fill"></i>'; msg=`${st.incr_out} keluar. Total: ${st.capacity}.`;color='var(--red)';}
+  const el=document.createElement('div');
+  el.className='notif-item';
+  el.innerHTML=`
+    <div class="n-icon" style="color:${color}">${icon}</div>
+    <div>
+      <div class="n-body" style="color:${color}">${msg}</div>
+      <div class="n-time">${ts}</div>
+    </div>
+  `;
+  list.insertBefore(el,list.firstChild);
+  while(list.children.length>6) list.removeChild(list.lastChild);
+}
+function clearNotif(){ document.getElementById('dNotifList').innerHTML='<div data-ph style="text-align:center;padding:12px;font-size:11px;color:var(--muted);font-family:var(--mono)">Log dikosongkan.</div>'; }
+
+function checkAlerts(){
+  let full=[],warn=[];
+  ROOMS.filter(r=>!r.offline).forEach(r=>{
+    const p=Math.round(RS[r.id].capacity/r.maxCap*100);
+    if(p>=100)full.push(r.name); else if(p>=80)warn.push(r.name);
+  });
+  const s=document.getElementById('aStrip');
+  if(full.length){s.className='alert-strip danger show'; document.getElementById('aText').innerHTML='<i class="bi bi-x-octagon-fill"></i> PENUH: '+full.join(', ');}
+  else if(warn.length){s.className='alert-strip warn show'; document.getElementById('aText').innerHTML='<i class="bi bi-exclamation-triangle-fill"></i> HAMPIR PENUH: '+warn.join(', ');}
+  else { s.classList.remove('show'); }
+}
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
+function setText(id,val){ const e=document.getElementById(id); if(e) e.textContent=val; }
+
+// ══════════════════════════════════════════════
+// THEME MODE
+// ══════════════════════════════════════════════
+function toggleTheme() {
+  const body = document.body;
+  const btn  = document.getElementById('themeBtn');
+  body.classList.toggle('light');
+  if (body.classList.contains('light')) {
+    btn.innerHTML = '<i class="bi bi-sun-fill"></i>';
+    localStorage.setItem('theme', 'light');
+  } else {
+    btn.innerHTML = '<i class="bi bi-moon-fill"></i>';
+    localStorage.setItem('theme', 'dark');
+  }
+}
+
+(function loadTheme() {
+  const saved = localStorage.getItem('theme');
+  const btn   = document.getElementById('themeBtn');
+  if (saved === 'light') {
+    document.body.classList.add('light');
+    if (btn) btn.innerHTML = '<i class="bi bi-sun-fill"></i>';
+  } else {
+    if (btn) btn.innerHTML = '<i class="bi bi-moon-fill"></i>';
+  }
+})();
+
+// ══════════════════════════════════════════════
+// STATUS DOT HELPER
+// ══════════════════════════════════════════════
+function setStatusDot(id, color) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'sys-dot ' + color;
+  if (color === 'r') el.style.cssText = 'background:var(--red);box-shadow:0 0 5px var(--red)';
+  else if (color === 'y') el.style.cssText = 'background:var(--yellow);box-shadow:0 0 5px var(--yellow)';
+  else el.style.cssText = 'background:var(--green);box-shadow:0 0 5px var(--green)';
+}
+
+// ══════════════════════════════════════════════
+// LOAD SUHU REKOMENDASI DARI DATABASE
+// ══════════════════════════════════════════════
+async function loadSuhuTerbaru(roomId) {
+  try {
+    const API = location.protocol === 'https:' ? '' : 'http://localhost:3000';
+    const res  = await fetch(`${API}/api/room/${roomId}/suhu/latest`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.suhu) {
+      setText('dSuhu', data.suhu);
+      console.log(`[${roomId}] Suhu dari DB: ${data.suhu} (${data.occupancy_pct}%)`);
+    }
+  } catch (err) {
+    console.error('Gagal load suhu dari DB:', err);
+  }
+}
+
+// ══════════════════════════════════════════════
+// WEBSOCKET
+// ══════════════════════════════════════════════
+const WS_URL = location.protocol==='https:'
+  ? 'wss://'+location.host
+  : 'ws://localhost:3000';
+
+let wsConn;
+function connectWS() {
+  wsConn = new WebSocket(WS_URL);
+  wsConn.onopen    = () => {
+    console.log('\u2705 WebSocket connected');
+    setStatusDot('sysMqttDot', 'g');
+    setText('sysMqttSt', 'Connected');
+  };
+  wsConn.onmessage = e => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'status') {
+        setStatusDot('sysDbDot', data.db ? 'g' : 'r');
+        setText('sysDbSt', data.db ? 'Connected' : 'Disconnected');
+        // Edge Device: tampilkan status ruangan yang sedang aktif, atau semua jika tidak ada
+        if (data.endDevice && activeRoom) {
+          const devSt = data.endDevice[activeRoom];
+          if (devSt !== undefined) {
+            setStatusDot('sysDevDot', devSt === 'online' ? 'g' : 'r');
+            setText('sysDevSt', devSt === 'online' ? 'Connected' : 'Disconnected');
+          } else {
+            setStatusDot('sysDevDot', 'r');
+            setText('sysDevSt', 'Disconnected');
+          }
+        }
+        setStatusDot('sysMqttDot', data.mqtt ? 'g' : 'r');
+        setText('sysMqttSt', data.mqtt ? 'Connected' : 'Disconnected');
+        return;
+      }
+      // Handle deviceStatus broadcast (per-event dari LWT)
+      if (data.type === 'deviceStatus') {
+        if (activeRoom && data.roomId === activeRoom) {
+          setStatusDot('sysDevDot', data.status === 'online' ? 'g' : 'r');
+          setText('sysDevSt', data.status === 'online' ? 'Online' : 'Offline');
+        }
+        // Update cache status realtime
+        appendDeviceStatusEvent(data.roomId, data.status);
+        return;
+      }
+      const { roomId, payload } = data;
+      processPayload(roomId, payload);
+    } catch(err) { console.error('WS parse error:', err); }
+  };
+  wsConn.onerror = e  => console.error('WebSocket error', e);
+  wsConn.onclose = () => {
+    console.warn('WebSocket closed, reconnect dalam 5 detik...');
+    setStatusDot('sysMqttDot', 'r'); setText('sysMqttSt', 'Disconnected');
+    setStatusDot('sysDevDot',  'r'); setText('sysDevSt',  'Offline');
+    setTimeout(connectWS, 5000);
+  };
+}
+
+// ══════════════════════════════════════════════
+// LOAD DATA HARI INI
+// ══════════════════════════════════════════════
+async function loadTodayData(roomId) {
+  try {
+    const API = location.protocol === 'https:' ? '' : 'http://localhost:3000';
+    const res  = await fetch(`${API}/api/room/${roomId}/today`);
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (!rows.length) return;
+
+    const st = RS[roomId];
+    rows.forEach(row => {
+      // Konversi label dari API ke timestamp numerik
+      const tsNum = labelToTs(row.label);
+      st.cd.labels.push(row.label);
+      st.cd.ts.push(tsNum);
+      st.cd.cap.push(row.capacity);
+      st.cd.in.push(row.a_to_b);
+      st.cd.out.push(row.b_to_a);
+    });
+    if (st.cd.labels.length > 3000) {
+      const excess = st.cd.labels.length - 50;
+      ['labels','ts','cap','in','out'].forEach(k => st.cd[k].splice(0, excess));
+    }
+    st.cd.cap.forEach(v => {
+      if (v > st.peak) st.peak = v;
+      st.sum += v;
+      st.cnt++;
+    });
+    const last  = rows[rows.length - 1];
+    st.capacity = last.capacity;
+    st.a_to_b   = last.a_to_b;
+    st.b_to_a   = last.b_to_a;
+    st.incr_in  = 0;
+    st.incr_out = 0;
+
+    // Bangun RH per jam dari data hari ini (raw rows kumulatif)
+    // Gunakan selisih kumulatif a_to_b / b_to_a per jam
+    const dk = new Date().toISOString().slice(0, 10);
+    if (!RH[roomId][dk]) RH[roomId][dk] = { ch: new Array(24).fill(null), ii: new Array(24).fill(0), io: new Array(24).fill(0) };
+    const hd = RH[roomId][dk];
+    // Kelompokkan rows per jam
+    const hourFirst = {}; // jam => row pertama di jam itu
+    const hourLast  = {}; // jam => row terakhir di jam itu
+    rows.forEach(row => {
+      const ts = labelToTs(row.label);
+      const hr = new Date(ts).getHours();
+      if (hourFirst[hr] === undefined) hourFirst[hr] = row;
+      hourLast[hr] = row;
+    });
+    // Hitung ii/io per jam: selisih kumulatif dalam jam itu
+    // Dan cap: nilai terakhir di jam itu
+    Object.keys(hourLast).forEach(h => {
+      const hr = Number(h);
+      const first = hourFirst[hr];
+      const last2 = hourLast[hr];
+      hd.ch[hr] = last2.capacity ?? 0;
+      hd.ii[hr] = (last2.a_to_b ?? 0) - (first.a_to_b ?? 0);
+      hd.io[hr] = (last2.b_to_a ?? 0) - (first.b_to_a ?? 0);
+    });
+    // Simpan nilai kumulatif terakhir per jam untuk bisa dilanjutkan oleh processPayload
+    RH[roomId][dk]._lastAtoB = last.a_to_b ?? 0;
+    RH[roomId][dk]._lastBtoA = last.b_to_a ?? 0;
+    RH[roomId][dk]._loadedFromToday = true;
+
+    updateRoomCard(roomId);
+    updateSBBadge(roomId);
+    updateOvSummary();
+
+    if (activeRoom === roomId) {
+      updateDetailCharts(roomId);
+      refreshDetail(roomId);
+    }
+    console.log(`[${roomId}] Loaded ${rows.length} data hari ini, capacity terakhir: ${last.capacity}`);
+  } catch (err) {
+    console.error('Gagal load data hari ini:', err);
+  }
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+buildSidebar();
+buildOverview();
+const _today = new Date().toISOString().slice(0,10);
+document.getElementById('dHistDateFrom').value = _today;
+document.getElementById('dHistDateTo').value   = _today;
+
+ROOMS.forEach(r => processPayload(r.id, {
+  capacity:0, increment:{a_to_b:0,b_to_a:0}, a_to_b:0, b_to_a:0
+}));
+
+ROOMS.filter(r => !r.offline).forEach(r => loadTodayData(r.id));
+
+connectWS();
+// ===== LIVE CLOCK TOPBAR =====
+function updateLiveClock() {
+  const now = new Date();
+
+  const time = now.toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+
+  const date = now.toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  const el = document.getElementById('liveClock');
+  if (el) {el.innerHTML = `${date} <span style="margin: 0 8px; color: var(--muted)">•</span> <span style="display:inline-block; width:80px; text-align:left;">${time}</span>`;}
+}
+
+// interval global (gabung dengan yang sudah ada)
+setInterval(()=>{
+  updateLiveClock();
+  updateOvSummary();
+},1000);
+
+// initial call
+updateLiveClock();
+// Klik di mana saja dalam kotak tanggal langsung buka kalender
+document.querySelectorAll('input[type="date"]').forEach(input => {
+  input.addEventListener('click', function() {
+    try {
+      this.showPicker();
+    } catch(e) {}
+  });
+});
+</script>
+</body>
+</html>
